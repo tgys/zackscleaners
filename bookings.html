@@ -1,0 +1,1901 @@
+<!DOCTYPE html>
+<html lang="en" class="booking-app">
+<head>
+  <base target="_top" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Book a clean — Tariff &amp; slots — Zack&apos;s Maids</title>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="stylesheet" href="/auth.css" />
+  <style>
+    /* iframe + standalone: avoid %height collapse inside Vue legacy iframe */
+    html.booking-app {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    html.booking-app body.booking-body {
+      position: absolute;
+      inset: 0;
+      margin: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+    }
+    .site-nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: rgba(6, 16, 24, 0.42);
+      backdrop-filter: blur(16px) saturate(1.15);
+      -webkit-backdrop-filter: blur(16px) saturate(1.15);
+      border-bottom: 1px solid rgba(102, 221, 255, 0.18);
+    }
+    .booking-main {
+      flex: 1 1 0;
+      min-height: 0;
+      overflow-x: hidden;
+      overflow-y: auto;
+      width: 90%;
+      max-width: 90%;
+      margin: 0 auto;
+      padding: calc(var(--nav-row-height) + 0.65rem) clamp(1rem, 4vw, 1.75rem) 0.65rem;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+    }
+    .booking-page-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0.35rem 0.85rem;
+      margin: 0 0 0.4rem;
+      flex-shrink: 0;
+    }
+    .booking-page-head h1 {
+      margin: 0;
+      font-size: clamp(1.35rem, 3.5vw, 1.65rem);
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    .booking-slot-heading {
+      margin: 0;
+      font-size: clamp(0.95rem, 2.4vw, 1.12rem);
+      font-weight: 500;
+      letter-spacing: -0.02em;
+      color: rgba(232, 238, 245, 0.68);
+    }
+    .booking-lede {
+      margin: 0 0 0.55rem;
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      max-width: 42em;
+      flex-shrink: 0;
+      line-height: 1.45;
+    }
+    .booking-card {
+      flex: 0 0 auto;
+      overflow: visible;
+      display: flex;
+      flex-direction: column;
+      padding: clamp(0.65rem, 1.8vw, 0.9rem) clamp(0.75rem, 2vw, 1.05rem)
+        clamp(0.5rem, 1.4vw, 0.65rem);
+      margin-bottom: 0;
+      background: rgba(8, 28, 42, 0.94);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+      box-sizing: border-box;
+    }
+    .booking-card .booking-request-form {
+      flex: 0 0 auto;
+      display: flex;
+      flex-direction: column;
+      overflow: visible;
+    }
+    .booking-step-panels {
+      flex: 0 0 auto;
+      position: relative;
+    }
+    .booking-step {
+      overflow-x: hidden;
+      overflow-y: visible;
+      padding-right: 0.15rem;
+    }
+    .booking-step[hidden] {
+      display: none !important;
+    }
+    .booking-step-nav {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-top: 0.5rem;
+      padding-top: 0.5rem;
+      border-top: 1px solid rgba(102, 221, 255, 0.12);
+    }
+    .booking-step-arrow {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 3rem;
+      height: 3rem;
+      padding: 0;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.28);
+      color: rgba(198, 242, 255, 0.92);
+      cursor: pointer;
+      transition: color 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    }
+    .booking-step-arrow:hover:not(:disabled) {
+      color: #86efac;
+      border-color: rgba(102, 221, 255, 0.38);
+      box-shadow: 0 0 22px rgba(102, 221, 255, 0.22);
+    }
+    .booking-step-arrow:focus-visible {
+      outline: 2px solid rgba(102, 221, 255, 0.65);
+      outline-offset: 2px;
+    }
+    .booking-step-arrow:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+    .booking-step-arrow__svg {
+      display: block;
+      width: 2.15rem;
+      height: 2.15rem;
+      overflow: visible;
+    }
+    .booking-step-arrow--prev .booking-step-arrow__svg {
+      transform: rotate(180deg);
+    }
+    .booking-step-dots {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .booking-step-dot {
+      width: 0.55rem;
+      height: 0.55rem;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: rgba(232, 238, 245, 0.28);
+      cursor: pointer;
+      transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+    }
+    .booking-step-dot:hover {
+      background: rgba(198, 242, 255, 0.55);
+    }
+    .booking-step-dot:focus-visible {
+      outline: 2px solid rgba(102, 221, 255, 0.55);
+      outline-offset: 2px;
+    }
+    .booking-step-dot[aria-selected="true"] {
+      background: rgba(102, 221, 255, 0.95);
+      transform: scale(1.35);
+      box-shadow: 0 0 12px rgba(102, 221, 255, 0.45);
+    }
+    .booking-submit-row {
+      flex-shrink: 0;
+      margin-top: 0.45rem;
+    }
+    .booking-status-msg {
+      flex-shrink: 0;
+      margin: 0.4rem 0 0;
+      min-height: 1.25em;
+      padding: 0.55rem 0.75rem;
+      border-radius: 8px;
+      border: 1px solid transparent;
+    }
+    .booking-status-msg--error {
+      color: #ffd4d4;
+      background: rgba(180, 40, 40, 0.22);
+      border-color: rgba(255, 120, 120, 0.45);
+    }
+    .booking-status-msg--success {
+      color: #d4ffe8;
+      background: rgba(40, 120, 70, 0.28);
+      border-color: rgba(120, 255, 170, 0.45);
+    }
+    .booking-status-msg--info {
+      color: rgba(198, 242, 255, 0.95);
+      background: rgba(102, 221, 255, 0.12);
+      border-color: rgba(102, 221, 255, 0.35);
+    }
+    .booking-submit-row[hidden] {
+      display: none !important;
+    }
+    .booking-map-picker-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      flex-shrink: 0;
+      padding: 0.45rem 0.75rem;
+      border-radius: 6px;
+      border: 1px solid rgba(102, 221, 255, 0.42);
+      background: rgba(102, 221, 255, 0.08);
+      color: rgba(198, 242, 255, 0.98);
+      font-size: 0.82rem;
+      font-weight: 500;
+      text-decoration: none;
+      transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+    .booking-map-picker-link:hover {
+      background: rgba(102, 221, 255, 0.16);
+      border-color: rgba(102, 221, 255, 0.58);
+      color: #f0fcff;
+    }
+    .booking-map-picker-link:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(102, 221, 255, 0.35);
+    }
+    .booking-address-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem 0.65rem;
+      margin-bottom: 0.85rem;
+    }
+    .booking-address-row input[type="text"] {
+      flex: 1 1 14rem;
+      min-width: 0;
+      width: auto;
+      margin-bottom: 0;
+    }
+    .booking-address-row .booking-map-picker-link {
+      flex-shrink: 0;
+    }
+    .booking-card .auth-form {
+      margin-bottom: 0;
+    }
+    .service-fieldset {
+      margin: 0 0 0.85rem;
+      padding: 0;
+      border: none;
+      min-width: 0;
+    }
+    .service-fieldset legend {
+      padding: 0;
+      margin: 0 0 0.45rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: rgba(232, 238, 245, 0.95);
+    }
+    .service-fieldset .fieldset-hint {
+      margin: 0 0 0.65rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      max-width: 42em;
+    }
+    .service-fieldset--addons legend span {
+      font-weight: 400;
+      color: var(--text-muted);
+      font-size: 0.88em;
+    }
+    .addon-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      min-height: 1.5rem;
+      margin: 0 0 0.72rem;
+      padding: 0;
+      list-style: none;
+    }
+    .addon-tags:empty {
+      margin-bottom: 0.35rem;
+    }
+    .addon-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.28rem 0.45rem 0.28rem 0.65rem;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      background: rgba(120, 180, 90, 0.14);
+      border: 1px solid rgba(140, 200, 110, 0.42);
+      color: rgba(210, 242, 185, 0.98);
+    }
+    .addon-tag button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.35rem;
+      height: 1.35rem;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.22);
+      color: inherit;
+      font-size: 1rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .addon-tag button:hover {
+      background: rgba(0, 0, 0, 0.38);
+    }
+    .addon-tag button:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(140, 200, 110, 0.45);
+    }
+    .addon-tags-empty-hint {
+      margin: -0.35rem 0 0.85rem;
+      font-size: 0.78rem;
+      color: rgba(232, 238, 245, 0.42);
+    }
+    .booking-pricing-note {
+      margin: 0.45rem 0 0;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+    .booking-checkout-section {
+      margin: 1rem 0 0;
+      padding: 0.85rem 1rem;
+      border-radius: 8px;
+      border: 1px solid rgba(102, 221, 255, 0.22);
+      background: rgba(6, 20, 32, 0.35);
+    }
+    .booking-checkout-heading {
+      margin: 0 0 0.35rem;
+      font-size: 0.98rem;
+      font-weight: 600;
+      color: rgba(232, 238, 245, 0.95);
+    }
+    #booking-card-container {
+      min-height: 5.5rem;
+      width: 100%;
+      margin: 0.65rem 0 0;
+    }
+    .booking-checkout-hint {
+      margin: 0 0 0.65rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+    .booking-step-title {
+      margin: 0 0 0.85rem;
+      font-size: 1rem;
+      font-weight: 600;
+      color: rgba(232, 238, 245, 0.95);
+      letter-spacing: -0.02em;
+    }
+  </style>
+</head>
+<body class="booking-body">
+  <nav class="site-nav" data-site-nav aria-label="Primary navigation">
+    <div class="nav-auth">
+      <span class="nav-auth-guest">
+        <a class="nav-link" href="/login.html">Login</a>
+        <span class="nav-sep" aria-hidden="true">|</span>
+        <a class="nav-link" href="/register.html">Register</a>
+      </span>
+      <span class="nav-auth-user" hidden>
+        <span class="nav-user-session">
+          <img class="nav-user-icon-img" src="/user-svgrepo-com.svg" alt="" width="18" height="18" />
+          <span class="nav-user-name" id="nav-user-display-name"></span>
+          <span class="nav-sep" aria-hidden="true">|</span>
+          <button type="button" class="nav-link nav-link-btn" id="nav-logout">Logout</button>
+        </span>
+      </span>
+    </div>
+    <ul class="nav-menu">
+      <li><a class="nav-link" href="/demo.html">Home</a></li>
+      <li class="nav-sep" aria-hidden="true">|</li>
+      <li>
+        <a class="nav-link" href="/bookings.html" aria-current="page">Services</a>
+      </li>
+      <li class="nav-sep" data-requires-auth-any hidden aria-hidden="true">|</li>
+      <li data-requires-auth-regular hidden>
+        <a class="nav-link" href="/bookings.html">My Bookings</a>
+      </li>
+      <li data-requires-admin hidden>
+        <a class="nav-link" href="/overview.html">All Bookings</a>
+      </li>
+      <li class="nav-sep" data-requires-admin hidden aria-hidden="true">|</li>
+      <li data-requires-admin hidden>
+        <a class="nav-link" href="/all-users.html">All users</a>
+      </li>
+      <li class="nav-sep" data-requires-admin hidden aria-hidden="true">|</li>
+      <li data-requires-admin hidden>
+        <a class="nav-link" href="/messages.html">Messages</a>
+      </li>
+      <li class="nav-sep" data-requires-admin hidden aria-hidden="true">|</li>
+      <li data-requires-admin hidden>
+        <a class="nav-link" href="/admin-settings.html">Settings</a>
+      </li>
+      <li class="nav-sep" aria-hidden="true">|</li>
+      <li><a class="nav-link" href="/about.html">About</a></li>
+      <li class="nav-sep" aria-hidden="true">|</li>
+      <li><a class="nav-link" href="/contact.html">Contact</a></li>
+    </ul>
+  </nav>
+
+  <main class="booking-main">
+    <header class="booking-page-head">
+      <h1>Tariff &amp; booking</h1>
+      <h2 id="request-heading" class="booking-slot-heading">Service &amp; add-ons</h2>
+    </header>
+    <p class="booking-lede">
+      Below are typical service rates for metro visits. Final pricing depends on home size, condition, and add-ons. If you came from the map, your address is filled in for you.
+    </p>
+
+    <section class="booking-card" aria-labelledby="request-heading">
+      <form id="booking-request-form" class="auth-form booking-request-form" method="post" action="#" novalidate>
+        <div class="booking-step-panels">
+          <div
+            class="booking-step booking-step--active"
+            id="booking-step-0"
+            data-booking-step="0"
+            role="region"
+            aria-labelledby="booking-step-label-0">
+            <h3 class="booking-step-title" id="booking-step-label-0">Service &amp; add-ons</h3>
+            <fieldset class="service-fieldset">
+              <legend>Cleaning type</legend>
+              <p class="fieldset-hint">
+                Choose one service. Starting prices shown; final quote depends on home details and selected add-ons.
+              </p>
+              <label for="booking-cleaning-type">Service</label>
+              <select id="booking-cleaning-type" name="cleaning_type">
+                <option value="" disabled selected>Select a cleaning type…</option>
+                <option value="studio-1br">Studio / 1 Bedroom Apartment Cleaning — Starting $48</option>
+                <option value="apt-2br">2 Bedroom Apartment Cleaning — Starting $65</option>
+                <option value="home-3br">3 Bedroom Home Cleaning — Starting $90</option>
+                <option value="deep">Deep Cleaning Service — Starting $125</option>
+                <option value="move-in-out">Move-In / Move-Out Cleaning — Starting $150</option>
+                <option value="office-small">Office Cleaning (Small Office) — Starting $60</option>
+                <option value="plan-weekly">Weekly Cleaning Plan — From $43 / visit</option>
+                <option value="plan-biweekly">Bi-Weekly Cleaning Plan — From $50 / visit</option>
+                <option value="plan-monthly">Monthly Cleaning Plan — From $60 / visit</option>
+                <option value="post-construction">Post-Construction Cleaning — From $175</option>
+                <option value="tip-2">$2 Tip — $2</option>
+              </select>
+            </fieldset>
+
+            <fieldset class="service-fieldset service-fieldset--addons">
+              <legend>Add-ons <span>(optional)</span></legend>
+              <p class="fieldset-hint">
+                Pick extras from the list; each choice appears as a tag. Remove a tag to drop that add-on.
+              </p>
+              <label for="booking-addon-add">Add an extra</label>
+              <select id="booking-addon-add" aria-label="Choose add-on to add">
+                <option value="">Choose add-on to add…</option>
+                <option value="bathroom">Bathroom Add-On — $13</option>
+                <option value="oven">Inside Oven Cleaning — $20</option>
+                <option value="fridge">Inside Fridge Cleaning — $18</option>
+                <option value="windows">Interior Window Cleaning — From $25</option>
+              </select>
+              <p class="addon-tags-empty-hint" id="addon-tags-hint">No add-ons selected yet.</p>
+              <div id="addon-tags" class="addon-tags" role="list" aria-label="Selected add-ons"></div>
+              <div id="addon-hidden-inputs" hidden aria-hidden="true"></div>
+            </fieldset>
+
+            <p class="booking-pricing-note">
+              Peak time (evenings/weekends) may include a small surcharge. Taxes and parking or tolls, if any, are
+              itemized on your invoice.
+            </p>
+          </div>
+
+          <div
+            class="booking-step"
+            id="booking-step-1"
+            data-booking-step="1"
+            hidden
+            role="region"
+            aria-labelledby="booking-step-label-1">
+            <h3 class="booking-step-title" id="booking-step-label-1">Address &amp; contact</h3>
+            <label for="booking-address">Service address</label>
+            <div class="booking-address-row">
+              <input
+                type="text"
+                id="booking-address"
+                name="address"
+                autocomplete="street-address"
+                placeholder="Street, city, state, ZIP"
+              />
+              <a
+                class="booking-map-picker-link"
+                id="booking-map-picker-link"
+                href="/demo.html#nyc-explorer"
+                title="Opens the NYC metro map on the home page: search your address, then tap Book slot to return here with the address filled in."
+              >
+                Pick address on map
+              </a>
+            </div>
+
+            <label for="booking-email">Email</label>
+            <input id="booking-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" />
+
+            <label for="booking-notes">Notes (optional)</label>
+            <input
+              id="booking-notes"
+              name="notes"
+              type="text"
+              autocomplete="off"
+              placeholder="Preferred day, pets, parking, etc."
+              pattern="[ -~]*"
+              title="Only plain ASCII characters are allowed (letters, numbers, and basic punctuation)."
+            />
+          </div>
+
+          <div
+            class="booking-step"
+            id="booking-step-2"
+            data-booking-step="2"
+            hidden
+            role="region"
+            aria-labelledby="booking-step-label-2">
+            <h3 class="booking-step-title" id="booking-step-label-2">Pay &amp; confirm</h3>
+
+            <section id="booking-guest-checkout" class="booking-checkout-section" hidden>
+              <h4 class="booking-checkout-heading">Account for your booking</h4>
+              <p class="booking-checkout-hint">
+                Choose a password so you can sign in later and track this request. Already registered?
+                <a href="/login.html">Sign in</a>
+                first, then return here.
+              </p>
+              <label for="booking-guest-name">Full name <span class="field-optional">(optional)</span></label>
+              <input id="booking-guest-name" type="text" name="guest_name" autocomplete="name" />
+
+              <label for="booking-guest-password">Password</label>
+              <input id="booking-guest-password" type="password" autocomplete="new-password" minlength="12" />
+
+              <label for="booking-guest-password2">Confirm password</label>
+              <input id="booking-guest-password2" type="password" autocomplete="new-password" minlength="12" />
+            </section>
+
+            <section id="booking-payment-section" class="booking-checkout-section" hidden>
+              <h4 class="booking-checkout-heading">Card checkout</h4>
+              <p id="booking-quote-line">
+                Total charged today (matches your selections):
+                <strong>$<span id="booking-quote-usd">—</span> USD</strong>
+              </p>
+              <p class="booking-checkout-hint">
+                Card data is handled by Stripe. Your bank may ask you to verify with Visa Secure or similar before payment completes.
+              </p>
+              <div id="booking-card-container" aria-label="Card payment"></div>
+            </section>
+          </div>
+        </div>
+
+        <p id="booking-submit-msg" class="booking-status-msg auth-meta" role="status" aria-live="polite"></p>
+
+        <div class="booking-submit-row" id="booking-submit-row" hidden>
+          <button type="submit" class="btn-primary" id="booking-submit-btn">
+            Submit request
+          </button>
+        </div>
+
+        <div class="booking-step-nav" id="booking-step-nav" aria-label="Booking steps" hidden>
+          <button type="button" class="booking-step-arrow booking-step-arrow--prev" id="booking-step-prev" aria-label="Previous step">
+            <svg
+              class="booking-step-arrow__svg"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 512 512"
+              aria-hidden="true"
+              focusable="false">
+              <g opacity="0.7">
+                <path
+                  fill="currentColor"
+                  d="M0,256.006C0,397.402,114.606,512.004,255.996,512C397.394,512.004,512,397.402,512,256.006C512.009,114.61,397.394,0,255.996,0C114.606,0,0,114.614,0,256.006z" />
+                <path
+                  fill="currentColor"
+                  d="M512,256.005c0.002-30.105-5.235-58.974-14.782-85.81c-0.268-0.268-0.607-0.387-0.901-0.599c-0.213-0.294-0.332-0.633-0.596-0.898c-0.265-0.266-75.945-75.945-76.209-76.21c-2.694-2.694-7.059-2.694-9.754,0L256,246.246L102.241,92.489c-2.694-2.694-7.058-2.694-9.754,0c-2.694,2.694-2.694,7.059,0,9.754l233.077,233.075L256,404.881L102.241,251.123c-2.694-2.694-7.058-2.694-9.754,0c-2.694,2.694-2.694,7.059,0,9.754L332.11,500.499C436.334,468.096,512,370.896,512,256.005z" />
+              </g>
+              <g fill="#F4F6F9">
+                <path
+                  d="M251.123,260.877c1.347,1.347,3.111,2.02,4.877,2.02c1.765,0,3.53-0.673,4.877-2.02l158.635-158.635c2.694-2.694,2.694-7.059,0-9.753c-2.694-2.694-7.059-2.694-9.753,0L256,246.247L102.242,92.489c-2.694-2.694-7.059-2.694-9.753,0c-2.694,2.694-2.694,7.059,0,9.753L251.123,260.877z" />
+                <path
+                  d="M409.758,251.123L256,404.882L102.242,251.123c-2.694-2.694-7.059-2.694-9.753,0c-2.694,2.694-2.694,7.059,0,9.753L251.124,419.51c1.347,1.347,3.111,2.02,4.877,2.02c1.765,0,3.53-0.673,4.877-2.02l158.635-158.635c2.694-2.694,2.694-7.059,0-9.753C416.817,248.429,412.452,248.429,409.758,251.123z" />
+              </g>
+            </svg>
+          </button>
+          <div class="booking-step-dots" id="booking-step-dots" role="tablist" aria-label="Choose booking page"></div>
+          <button type="button" class="booking-step-arrow booking-step-arrow--next" id="booking-step-next" aria-label="Next step">
+            <svg
+              class="booking-step-arrow__svg"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 512 512"
+              aria-hidden="true"
+              focusable="false">
+              <g opacity="0.7">
+                <path
+                  fill="currentColor"
+                  d="M0,256.006C0,397.402,114.606,512.004,255.996,512C397.394,512.004,512,397.402,512,256.006C512.009,114.61,397.394,0,255.996,0C114.606,0,0,114.614,0,256.006z" />
+                <path
+                  fill="currentColor"
+                  d="M512,256.005c0.002-30.105-5.235-58.974-14.782-85.81c-0.268-0.268-0.607-0.387-0.901-0.599c-0.213-0.294-0.332-0.633-0.596-0.898c-0.265-0.266-75.945-75.945-76.209-76.21c-2.694-2.694-7.059-2.694-9.754,0L256,246.246L102.241,92.489c-2.694-2.694-7.058-2.694-9.754,0c-2.694,2.694-2.694,7.059,0,9.754l233.077,233.075L256,404.881L102.241,251.123c-2.694-2.694-7.058-2.694-9.754,0c-2.694,2.694-2.694,7.059,0,9.754L332.11,500.499C436.334,468.096,512,370.896,512,256.005z" />
+              </g>
+              <g fill="#F4F6F9">
+                <path
+                  d="M251.123,260.877c1.347,1.347,3.111,2.02,4.877,2.02c1.765,0,3.53-0.673,4.877-2.02l158.635-158.635c2.694-2.694,2.694-7.059,0-9.753c-2.694-2.694-7.059-2.694-9.753,0L256,246.247L102.242,92.489c-2.694-2.694-7.059-2.694-9.753,0c-2.694,2.694-2.694,7.059,0,9.753L251.123,260.877z" />
+                <path
+                  d="M409.758,251.123L256,404.882L102.242,251.123c-2.694-2.694-7.059-2.694-9.753,0c-2.694,2.694-2.694,7.059,0,9.753L251.124,419.51c1.347,1.347,3.111,2.02,4.877,2.02c1.765,0,3.53-0.673,4.877-2.02l158.635-158.635c2.694-2.694,2.694-7.059,0-9.753C416.817,248.429,412.452,248.429,409.758,251.123z" />
+              </g>
+            </svg>
+          </button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <script src="/auth-client.js" defer></script>
+  <script>
+    (function () {
+      var submitMsg = document.getElementById("booking-submit-msg");
+      var submitBtn = document.getElementById("booking-submit-btn");
+      var bookingForm = document.getElementById("booking-request-form");
+      var cachedCustomerEmail = null;
+
+      var checkoutEnabled = false;
+      var customerLoggedIn = false;
+      var publishableKey = "";
+      var stripeClient = null;
+      var stripeElements = null;
+      var stripePaymentElement = null;
+      var stripeClientSecret = null;
+      var stripePaymentIntentId = null;
+
+      window.__bookingQuoteCents = null;
+
+      function defaultSubmitLabel() {
+        return checkoutEnabled ? "Pay & submit booking" : "Submit request";
+      }
+
+      function setSubmitState(enabled, label) {
+        if (!submitBtn) return;
+        submitBtn.disabled = !enabled;
+        submitBtn.textContent = label || defaultSubmitLabel();
+      }
+
+      function resetStripePaymentUi() {
+        if (stripePaymentElement) {
+          try {
+            stripePaymentElement.unmount();
+          } catch (_e) {}
+          stripePaymentElement = null;
+        }
+        stripeElements = null;
+        stripeClientSecret = null;
+        stripePaymentIntentId = null;
+        var container = document.getElementById("booking-card-container");
+        if (container) container.innerHTML = "";
+      }
+
+      function loadStripeScript() {
+        return new Promise(function (resolve, reject) {
+          if (window.Stripe) {
+            resolve();
+            return;
+          }
+          var s = document.createElement("script");
+          s.src = "https://js.stripe.com/v3/";
+          s.async = true;
+          s.onload = resolve;
+          s.onerror = function () {
+            reject(new Error("Could not load Stripe checkout script."));
+          };
+          document.head.appendChild(s);
+        });
+      }
+
+      function stripeReturnUrl() {
+        var u = new URL(window.location.href);
+        u.searchParams.delete("session_id");
+        u.searchParams.delete("payment_intent");
+        u.searchParams.delete("payment_intent_client_secret");
+        u.searchParams.delete("redirect_status");
+        return u.toString();
+      }
+
+      function stripeCleanPageUrl() {
+        return stripeReturnUrl();
+      }
+
+      function collectGuestExtraForCheckout() {
+        if (customerLoggedIn) return null;
+        var nmGuest = document.getElementById("booking-guest-name");
+        return {
+          email: emailInput ? emailInput.value.trim().toLowerCase() : "",
+          password: document.getElementById("booking-guest-password").value,
+          password_confirm: document.getElementById("booking-guest-password2").value,
+          name: nmGuest && nmGuest.value.trim() ? nmGuest.value.trim() : null,
+        };
+      }
+
+      function validateGuestCheckoutFields() {
+        if (customerLoggedIn) return true;
+        var guestExtra = collectGuestExtraForCheckout();
+        if (!guestExtra.email || !validateEmailSimple(guestExtra.email)) {
+          showPaymentStatus("Enter a valid email on step 2 before paying.", "error");
+          return false;
+        }
+        if (guestExtra.password.length < 12) {
+          showPaymentStatus("Password must be at least 12 characters.", "error");
+          return false;
+        }
+        if (guestExtra.password !== guestExtra.password_confirm) {
+          showPaymentStatus("Password confirmation does not match.", "error");
+          return false;
+        }
+        return true;
+      }
+
+      function validateEmailSimple(value) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
+      }
+
+      function collectBookingPayload() {
+        var cleaning = document.getElementById("booking-cleaning-type");
+        var addressEl = document.getElementById("booking-address");
+        return {
+          cleaning_type: cleaning ? cleaning.value : "",
+          addons: addonIds(),
+          address: addressEl ? addressEl.value.trim() : "",
+          notes: notesEl ? notesEl.value : "",
+        };
+      }
+
+      function refreshStripePaymentElement() {
+        resetStripePaymentUi();
+        if (!stripeClient || !publishableKey || !window.__bookingQuoteCents) {
+          return Promise.resolve();
+        }
+        var cleaning = document.getElementById("booking-cleaning-type");
+        return fetch("/api/bookings/create-intent", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cleaning_type: cleaning ? cleaning.value : "",
+            addons: addonIds(),
+            amount_cents: window.__bookingQuoteCents,
+          }),
+        })
+          .then(function (r) {
+            return r.json().then(function (data) {
+              return { ok: r.ok, data: data };
+            });
+          })
+          .then(function (res) {
+            if (!res.ok || !res.data.clientSecret) {
+              throw new Error(res.data.error || "Could not start payment.");
+            }
+            stripeClientSecret = res.data.clientSecret;
+            stripePaymentIntentId = res.data.paymentIntentId;
+            stripeElements = stripeClient.elements({ clientSecret: stripeClientSecret });
+            stripePaymentElement = stripeElements.create("payment");
+            return stripePaymentElement.mount("#booking-card-container");
+          });
+      }
+
+      function ensureStripePaymentElement() {
+        if (!checkoutEnabled || !stripeClient || !window.__bookingQuoteCents) {
+          return Promise.resolve();
+        }
+        if (stripePaymentElement && stripeClientSecret) {
+          return Promise.resolve();
+        }
+        return refreshStripePaymentElement();
+      }
+
+      var BOOKING_DRAFT_KEY = "zacksBookingDraft";
+      var BOOKING_RETURN_MAP_KEY = "zacksBookingReturnFromMap";
+      var BOOKING_CHECKOUT_DRAFT_KEY = "zacksBookingCheckoutDraft";
+      var stripeCheckoutReturnError = null;
+
+      function checkoutDraftBlob(payload, guestExtra) {
+        return JSON.stringify({
+          payload: payload,
+          amount_cents: window.__bookingQuoteCents,
+          customerLoggedIn: customerLoggedIn,
+          guest: guestExtra || null,
+          savedAt: Date.now(),
+        });
+      }
+
+      function saveCheckoutDraft(payload, guestExtra) {
+        var blob = checkoutDraftBlob(payload, guestExtra);
+        try {
+          sessionStorage.setItem(BOOKING_CHECKOUT_DRAFT_KEY, blob);
+        } catch (draftErr) {
+          /* ignore */
+        }
+        try {
+          localStorage.setItem(BOOKING_CHECKOUT_DRAFT_KEY, blob);
+        } catch (draftErr2) {
+          /* ignore */
+        }
+      }
+
+      function loadCheckoutDraft() {
+        var raw = null;
+        try {
+          raw = sessionStorage.getItem(BOOKING_CHECKOUT_DRAFT_KEY);
+        } catch (draftErr) {
+          /* ignore */
+        }
+        if (!raw) {
+          try {
+            raw = localStorage.getItem(BOOKING_CHECKOUT_DRAFT_KEY);
+          } catch (draftErr2) {
+            /* ignore */
+          }
+        }
+        if (!raw) return null;
+        try {
+          return JSON.parse(raw);
+        } catch (parseErr) {
+          return null;
+        }
+      }
+
+      function clearCheckoutDraft() {
+        try {
+          sessionStorage.removeItem(BOOKING_CHECKOUT_DRAFT_KEY);
+        } catch (draftErr) {
+          /* ignore */
+        }
+        try {
+          localStorage.removeItem(BOOKING_CHECKOUT_DRAFT_KEY);
+        } catch (draftErr2) {
+          /* ignore */
+        }
+      }
+
+      function showPaymentStatus(message, kind) {
+        if (!submitMsg) return;
+        submitMsg.textContent = message || "";
+        submitMsg.classList.remove(
+          "booking-status-msg--error",
+          "booking-status-msg--success",
+          "booking-status-msg--info",
+        );
+        if (kind === "error") {
+          submitMsg.classList.add("booking-status-msg--error");
+        } else if (kind === "success") {
+          submitMsg.classList.add("booking-status-msg--success");
+        } else if (kind === "info") {
+          submitMsg.classList.add("booking-status-msg--info");
+        }
+        submitMsg.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      }
+
+      function stripeDebugSuffix(detail) {
+        if (!detail) return "";
+        var parts = [];
+        if (detail.status) parts.push("status=" + detail.status);
+        if (detail.payment_intent_id) parts.push("pi=" + detail.payment_intent_id);
+        if (detail.type) parts.push("type=" + detail.type);
+        if (detail.code) parts.push("code=" + detail.code);
+        if (detail.decline_code) parts.push("decline_code=" + detail.decline_code);
+        if (detail.redirect_status) parts.push("redirect_status=" + detail.redirect_status);
+        return parts.length ? " [Stripe: " + parts.join(", ") + "]" : "";
+      }
+
+      function logPaymentDebug(label, detail) {
+        try {
+          console.warn("[booking checkout]", label, detail);
+        } catch (_logErr) {
+          /* ignore */
+        }
+      }
+
+      function paymentFailure(message, detail, label) {
+        var full = (message || "Payment failed.") + stripeDebugSuffix(detail);
+        logPaymentDebug(label || "payment-failure", detail || { message: message });
+        var err = new Error(full);
+        err.stripeDetail = detail || null;
+        return err;
+      }
+
+      function throwFromStripeError(stripeError, fallbackMessage) {
+        var msg = (stripeError && stripeError.message) || fallbackMessage || "Payment failed.";
+        throw paymentFailure(
+          msg,
+          {
+            type: stripeError && stripeError.type,
+            code: stripeError && stripeError.code,
+            decline_code: stripeError && stripeError.decline_code,
+            message: stripeError && stripeError.message,
+            status:
+              stripeError &&
+              stripeError.payment_intent &&
+              stripeError.payment_intent.status,
+            payment_intent_id:
+              stripeError &&
+              stripeError.payment_intent &&
+              stripeError.payment_intent.id,
+          },
+          "stripe-error",
+        );
+      }
+
+      function throwFromPaymentIntent(pi, fallbackMessage) {
+        var lastErr = pi && pi.last_payment_error;
+        var msg =
+          (lastErr && lastErr.message) || fallbackMessage || "Payment did not complete.";
+        throw paymentFailure(
+          msg,
+          {
+            status: pi && pi.status,
+            payment_intent_id: pi && pi.id,
+            type: lastErr && lastErr.type,
+            code: lastErr && lastErr.code,
+            decline_code: lastErr && lastErr.decline_code,
+            message: lastErr && lastErr.message,
+          },
+          "payment-intent",
+        );
+      }
+
+      function pollPaymentIntentUntilDone(clientSecret, attemptsLeft) {
+        return stripeClient
+          .retrievePaymentIntent(clientSecret)
+          .then(function (result) {
+            var pi = result.paymentIntent;
+            if (!pi) {
+              throw paymentFailure(
+                "Could not verify payment — try again.",
+                { status: "missing" },
+                "retrieve-payment-intent",
+              );
+            }
+            if (pi.status === "succeeded") {
+              return pi;
+            }
+            if (pi.status === "processing" && attemptsLeft > 0) {
+              return new Promise(function (resolve) {
+                window.setTimeout(resolve, 1500);
+              }).then(function () {
+                return pollPaymentIntentUntilDone(clientSecret, attemptsLeft - 1);
+              });
+            }
+            if (pi.status === "requires_payment_method") {
+              throwFromPaymentIntent(pi, "Payment was declined. Try another card.");
+            }
+            if (pi.status === "requires_action") {
+              throwFromPaymentIntent(
+                pi,
+                "Your bank still needs verification — complete the secure checkout prompt, then try again.",
+              );
+            }
+            throwFromPaymentIntent(
+              pi,
+              "Payment did not complete. Check your card details or try again.",
+            );
+          })
+          .catch(function (err) {
+            if (err && err.stripeDetail) throw err;
+            throw paymentFailure(
+              (err && err.message) || "Could not verify payment with Stripe.",
+              {
+                type: err && err.type,
+                code: err && err.code,
+                message: err && err.message,
+              },
+              "retrieve-payment-intent",
+            );
+          });
+      }
+
+      function completePaidBooking(paymentIntent, payload, guestExtra) {
+        if (!paymentIntent || !paymentIntent.id) {
+          throw paymentFailure(
+            "Missing payment confirmation — try again.",
+            { status: "missing" },
+            "complete-paid-booking",
+          );
+        }
+        if (paymentIntent.status === "processing") {
+          showPaymentStatus("Payment processing — confirming with your bank…", "info");
+          return pollPaymentIntentUntilDone(
+            paymentIntent.client_secret || stripeClientSecret,
+            8,
+          ).then(function (pi) {
+            return finalizeBookingCheckout({ paymentIntentId: pi.id }, payload, guestExtra);
+          });
+        }
+        if (paymentIntent.status !== "succeeded") {
+          throwFromPaymentIntent(
+            paymentIntent,
+            "Payment did not complete. Check your card details or try again.",
+          );
+        }
+        return finalizeBookingCheckout(
+          { paymentIntentId: paymentIntent.id },
+          payload,
+          guestExtra,
+        );
+      }
+
+      function ensurePaymentStepVisible() {
+        currentBookingStep = TOTAL_BOOKING_STEPS - 1;
+        syncBookingPaginationUI();
+      }
+
+      function restoreCheckoutDraftToForm(draft) {
+        if (!draft || !draft.payload) return;
+        var p = draft.payload;
+        var cleaning = document.getElementById("booking-cleaning-type");
+        var addressEl = document.getElementById("booking-address");
+        if (cleaning && p.cleaning_type) cleaning.value = p.cleaning_type;
+        if (addressEl && p.address) addressEl.value = p.address;
+        if (notesEl && p.notes != null) notesEl.value = p.notes;
+        if (Array.isArray(p.addons) && addonTagsEl) {
+          addonSelected = {};
+          addonTagsEl.innerHTML = "";
+          p.addons.forEach(function (id) {
+            if (!id || addonSelected[id]) return;
+            addonSelected[id] = true;
+            addonTagsEl.appendChild(renderAddonTag(id));
+          });
+          syncAddonHiddenInputs();
+          refreshAddonSelectDisabled();
+          updateAddonHint();
+        }
+        if (draft.guest && emailInput && draft.guest.email) {
+          emailInput.value = draft.guest.email;
+        }
+      }
+
+      function buildCheckoutRequestBody(payload, paymentRef, guestExtra) {
+        var body = Object.assign({}, payload, {
+          amount_cents: window.__bookingQuoteCents,
+        });
+        if (paymentRef.checkoutSessionId) {
+          body.checkoutSessionId = paymentRef.checkoutSessionId;
+        }
+        if (paymentRef.paymentIntentId) {
+          body.paymentIntentId = paymentRef.paymentIntentId;
+        }
+        if (!customerLoggedIn && guestExtra) {
+          body.email = guestExtra.email || "";
+          body.password = guestExtra.password || "";
+          body.password_confirm = guestExtra.password_confirm || "";
+          body.name = guestExtra.name != null ? guestExtra.name : null;
+        }
+        return body;
+      }
+
+      function postBookingCheckout(body) {
+        return fetch("/api/bookings/checkout", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }).then(function (r) {
+          return r.json().then(function (data) {
+            return { ok: r.ok, status: r.status, data: data };
+          });
+        });
+      }
+
+      function showCheckoutSuccess(message) {
+        ensurePaymentStepVisible();
+        resetStripePaymentUi();
+        showPaymentStatus(
+          message || "Payment received. Your booking request was saved.",
+          "success",
+        );
+        window.setTimeout(function () {
+          window.location.href = stripeReturnUrl();
+        }, 8000);
+      }
+
+      function finalizeBookingCheckout(paymentRef, payload, guestExtra) {
+        var draft = loadCheckoutDraft();
+        if (draft && draft.amount_cents != null) {
+          window.__bookingQuoteCents = Number(draft.amount_cents);
+        } else if (window.__bookingQuoteCents == null) {
+          showPaymentStatus(
+            "Payment step finished but the total is missing — refresh and contact support if you were charged.",
+            "error",
+          );
+          return Promise.reject(new Error("missing quote"));
+        }
+
+        var body = buildCheckoutRequestBody(payload, paymentRef, guestExtra);
+        body.amount_cents = window.__bookingQuoteCents;
+        showPaymentStatus("Saving your booking…", "info");
+        return postBookingCheckout(body).then(function (res) {
+          if (!res.ok) {
+            logPaymentDebug("checkout-api", {
+              httpStatus: res.status,
+              error: res.data && res.data.error,
+              stripe: res.data && res.data.stripe,
+              paymentRef: paymentRef,
+            });
+            var stripeDetail = {
+              code: "checkout_api_" + res.status,
+              status: String(res.status),
+            };
+            if (paymentRef.checkoutSessionId) {
+              stripeDetail.payment_intent_id = paymentRef.checkoutSessionId;
+            }
+            if (paymentRef.paymentIntentId) {
+              stripeDetail.payment_intent_id = paymentRef.paymentIntentId;
+            }
+            if (res.data && res.data.stripe) {
+              stripeDetail = Object.assign(stripeDetail, res.data.stripe);
+            }
+            throw paymentFailure(
+              res.data.error || "Checkout failed — try again.",
+              stripeDetail,
+              "checkout-api",
+            );
+          }
+          clearCheckoutDraft();
+          showCheckoutSuccess(res.data.message);
+          return res;
+        });
+      }
+
+      var stripeCheckoutReturnHandled = false;
+
+      function handleStripeReturnIfNeeded() {
+        var urlParams = new URLSearchParams(window.location.search);
+        var clientSecret = urlParams.get("payment_intent_client_secret");
+        var redirectStatus = urlParams.get("redirect_status");
+        if (!clientSecret || !redirectStatus || !stripeClient) {
+          return Promise.resolve(false);
+        }
+
+        ensurePaymentStepVisible();
+        var draft = loadCheckoutDraft();
+        if (draft) {
+          restoreCheckoutDraftToForm(draft);
+          if (draft.amount_cents != null) {
+            window.__bookingQuoteCents = Number(draft.amount_cents);
+          }
+        }
+
+        window.history.replaceState({}, "", stripeReturnUrl());
+
+        if (redirectStatus === "failed") {
+          throw paymentFailure(
+            "Payment was cancelled or declined. Check your card and try again.",
+            { redirect_status: redirectStatus },
+            "stripe-return",
+          );
+        }
+
+        setSubmitState(false, "Finishing booking…");
+        showPaymentStatus("Payment verified — saving your booking…", "info");
+
+        return pollPaymentIntentUntilDone(clientSecret, 8)
+          .then(function (pi) {
+            if (!draft || !draft.payload) {
+              throw new Error(
+                "Payment received but booking details were lost — contact support and reference payment " +
+                  pi.id,
+              );
+            }
+            return finalizeBookingCheckout({ paymentIntentId: pi.id }, draft.payload, draft.guest);
+          })
+          .then(function () {
+            stripeCheckoutReturnHandled = true;
+            return true;
+          });
+      }
+
+      var params = new URLSearchParams(window.location.search);
+      var mapReturnAddress = "";
+      var bookingDraftFromMap = null;
+
+      if (params.get("from") === "map") {
+        var addrParam = params.get("address");
+        if (addrParam) {
+          mapReturnAddress = addrParam.trim();
+        } else {
+          try {
+            mapReturnAddress = (sessionStorage.getItem("zacksBookingAddress") || "").trim();
+            sessionStorage.removeItem("zacksBookingAddress");
+          } catch (mapAddrErr) {
+            mapReturnAddress = "";
+          }
+        }
+        try {
+          var draftRaw = sessionStorage.getItem(BOOKING_DRAFT_KEY);
+          if (draftRaw) {
+            bookingDraftFromMap = JSON.parse(draftRaw);
+            sessionStorage.removeItem(BOOKING_DRAFT_KEY);
+            sessionStorage.removeItem(BOOKING_RETURN_MAP_KEY);
+          }
+        } catch (draftErr) {
+          bookingDraftFromMap = null;
+        }
+      } else if (params.get("address")) {
+        mapReturnAddress = params.get("address").trim();
+      }
+
+      function stripNonAsciiNotes(el) {
+        if (!el) return;
+        el.value = el.value.replace(/[^ -~]/g, "");
+      }
+
+      var notesEl = document.getElementById("booking-notes");
+      if (notesEl) {
+        notesEl.addEventListener("input", function () {
+          stripNonAsciiNotes(notesEl);
+        });
+        notesEl.addEventListener("paste", function () {
+          requestAnimationFrame(function () {
+            stripNonAsciiNotes(notesEl);
+          });
+        });
+      }
+
+      /* Add-ons: dropdown builds tag list + hidden inputs named "addons". */
+      var addonSelect = document.getElementById("booking-addon-add");
+      var addonTagsEl = document.getElementById("addon-tags");
+      var addonHiddenEl = document.getElementById("addon-hidden-inputs");
+      var addonHintEl = document.getElementById("addon-tags-hint");
+      var addonLabels = {
+        bathroom: "Bathroom Add-On ($13)",
+        oven: "Inside Oven Cleaning ($20)",
+        fridge: "Inside Fridge Cleaning ($18)",
+        windows: "Interior Window Cleaning (from $25)",
+      };
+      var addonSelected = {};
+
+      function addonIds() {
+        return Object.keys(addonSelected).sort();
+      }
+
+      function syncAddonHiddenInputs() {
+        if (!addonHiddenEl) return;
+        addonHiddenEl.innerHTML = "";
+        addonIds().forEach(function (id) {
+          var inp = document.createElement("input");
+          inp.type = "hidden";
+          inp.name = "addons";
+          inp.value = id;
+          addonHiddenEl.appendChild(inp);
+        });
+      }
+
+      function refreshAddonSelectDisabled() {
+        if (!addonSelect) return;
+        Array.prototype.forEach.call(addonSelect.options, function (opt) {
+          if (!opt.value) return;
+          opt.disabled = Object.prototype.hasOwnProperty.call(addonSelected, opt.value);
+        });
+      }
+
+      function updateAddonHint() {
+        if (addonHintEl) addonHintEl.hidden = addonTagsEl && addonTagsEl.children.length > 0;
+      }
+
+      function refreshQuote() {
+        var quoteSpan = document.getElementById("booking-quote-usd");
+        var cleaning = document.getElementById("booking-cleaning-type");
+        if (!checkoutEnabled || !cleaning || !cleaning.value) {
+          window.__bookingQuoteCents = null;
+          if (quoteSpan) quoteSpan.textContent = "—";
+          return;
+        }
+        fetch("/api/bookings/quote", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cleaning_type: cleaning.value,
+            addons: addonIds(),
+          }),
+        })
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (data) {
+            if (data.amount_cents != null && quoteSpan) {
+              quoteSpan.textContent = (Number(data.amount_cents) / 100).toFixed(2);
+              window.__bookingQuoteCents = Number(data.amount_cents);
+            }
+            if (
+              checkoutEnabled &&
+              publishableKey &&
+              currentBookingStep >= TOTAL_BOOKING_STEPS - 1
+            ) {
+              return refreshStripePaymentElement();
+            }
+          })
+          .catch(function () {
+            window.__bookingQuoteCents = null;
+            if (quoteSpan) quoteSpan.textContent = "—";
+          });
+      }
+
+      function removeAddon(id) {
+        delete addonSelected[id];
+        syncAddonHiddenInputs();
+        refreshAddonSelectDisabled();
+        updateAddonHint();
+        refreshQuote();
+      }
+
+      function renderAddonTag(id) {
+        var lab = addonLabels[id] || id;
+        var wrap = document.createElement("span");
+        wrap.className = "addon-tag";
+        wrap.setAttribute("role", "listitem");
+        wrap.dataset.addonId = id;
+        var labEl = document.createElement("span");
+        labEl.textContent = lab;
+        var rm = document.createElement("button");
+        rm.type = "button";
+        rm.setAttribute("aria-label", "Remove " + lab);
+        rm.innerHTML = "&times;";
+        rm.addEventListener("click", function () {
+          wrap.remove();
+          removeAddon(id);
+        });
+        wrap.appendChild(labEl);
+        wrap.appendChild(rm);
+        return wrap;
+      }
+
+      if (addonSelect && addonTagsEl && addonHiddenEl) {
+        addonSelect.addEventListener("change", function () {
+          var id = addonSelect.value;
+          addonSelect.value = "";
+          if (!id || Object.prototype.hasOwnProperty.call(addonSelected, id)) return;
+          addonSelected[id] = true;
+          addonTagsEl.appendChild(renderAddonTag(id));
+          syncAddonHiddenInputs();
+          refreshAddonSelectDisabled();
+          updateAddonHint();
+          refreshQuote();
+        });
+        refreshAddonSelectDisabled();
+        updateAddonHint();
+      }
+
+      var cleaningSelect = document.getElementById("booking-cleaning-type");
+      if (cleaningSelect) {
+        cleaningSelect.addEventListener("change", refreshQuote);
+      }
+
+      var guestSection = document.getElementById("booking-guest-checkout");
+      var paymentSection = document.getElementById("booking-payment-section");
+      var emailInput = document.getElementById("booking-email");
+
+      var TOTAL_BOOKING_STEPS = 3;
+      var currentBookingStep = 0;
+
+      var bookingStepNavEl = document.getElementById("booking-step-nav");
+      var bookingSubmitRowEl = document.getElementById("booking-submit-row");
+      var bookingStepDotsEl = document.getElementById("booking-step-dots");
+      var bookingStepPrevEl = document.getElementById("booking-step-prev");
+      var bookingStepNextEl = document.getElementById("booking-step-next");
+      var requestHeadingEl = document.getElementById("request-heading");
+
+      var BOOKING_STEP_HEADINGS = ["Service & add-ons", "Address & contact", "Pay & confirm"];
+
+      var bookingStepPanelsEl = [];
+      for (var bsi = 0; bsi < TOTAL_BOOKING_STEPS; bsi++) {
+        bookingStepPanelsEl.push(document.getElementById("booking-step-" + bsi));
+      }
+
+      function validateBookingStep0() {
+        var ct = document.getElementById("booking-cleaning-type");
+        if (!ct || !ct.value) {
+          if (submitMsg) submitMsg.textContent = "Select a cleaning type to continue.";
+          if (ct) ct.focus();
+          return false;
+        }
+        return true;
+      }
+
+      function validateBookingStep1() {
+        var emEl = document.getElementById("booking-email");
+        if (emEl && emEl.required) {
+          if (!String(emEl.value || "").trim()) {
+            if (submitMsg) submitMsg.textContent = "Enter your email to continue.";
+            emEl.focus();
+            return false;
+          }
+        }
+        if (emEl && !emEl.checkValidity()) {
+          emEl.reportValidity();
+          return false;
+        }
+        var nt = document.getElementById("booking-notes");
+        if (nt && !nt.checkValidity()) {
+          nt.reportValidity();
+          return false;
+        }
+        return true;
+      }
+
+      function bookingValidateStepsBefore(targetIdx) {
+        for (var s = 0; s < targetIdx; s++) {
+          if (s === 0 && !validateBookingStep0()) return false;
+          if (s === 1 && !validateBookingStep1()) return false;
+        }
+        return true;
+      }
+
+      function syncBookingPaginationUI() {
+        bookingStepPanelsEl.forEach(function (panel, idx) {
+          if (!panel) return;
+          var active = idx === currentBookingStep;
+          panel.hidden = !active;
+          panel.classList.toggle("booking-step--active", active);
+          panel.setAttribute("aria-hidden", active ? "false" : "true");
+        });
+
+        var dots = bookingStepDotsEl
+          ? bookingStepDotsEl.querySelectorAll(".booking-step-dot")
+          : [];
+        for (var d = 0; d < dots.length; d++) {
+          dots[d].setAttribute("aria-selected", d === currentBookingStep ? "true" : "false");
+        }
+
+        if (bookingStepPrevEl) bookingStepPrevEl.disabled = currentBookingStep <= 0;
+
+        var onLastStep = currentBookingStep >= TOTAL_BOOKING_STEPS - 1;
+        if (bookingStepNextEl) {
+          bookingStepNextEl.disabled = onLastStep;
+          bookingStepNextEl.hidden = onLastStep;
+        }
+
+        if (bookingSubmitRowEl) bookingSubmitRowEl.hidden = !onLastStep;
+
+        if (requestHeadingEl && BOOKING_STEP_HEADINGS[currentBookingStep]) {
+          requestHeadingEl.textContent = BOOKING_STEP_HEADINGS[currentBookingStep];
+        }
+
+        if (onLastStep && checkoutEnabled && publishableKey && window.__bookingQuoteCents) {
+          ensureStripePaymentElement().catch(function (err) {
+            showPaymentStatus(
+              err && err.message ? err.message : "Payment form failed to load.",
+              "error",
+            );
+          });
+        }
+      }
+
+      function collectBookingDraft() {
+        var cleaning = document.getElementById("booking-cleaning-type");
+        return {
+          cleaning_type: cleaning ? cleaning.value : "",
+          addons: addonIds(),
+          email: emailInput ? emailInput.value : "",
+          notes: notesEl ? notesEl.value : "",
+          step: currentBookingStep,
+        };
+      }
+
+      function saveBookingDraftForMap() {
+        try {
+          sessionStorage.setItem(BOOKING_DRAFT_KEY, JSON.stringify(collectBookingDraft()));
+          sessionStorage.setItem(BOOKING_RETURN_MAP_KEY, "1");
+        } catch (draftSaveErr) {
+          /* ignore */
+        }
+      }
+
+      function restoreBookingDraftFromMap(draft, address) {
+        if (!draft) {
+          return;
+        }
+        var cleaning = document.getElementById("booking-cleaning-type");
+        if (cleaning && draft.cleaning_type) {
+          cleaning.value = draft.cleaning_type;
+        }
+        if (Array.isArray(draft.addons) && addonTagsEl) {
+          addonSelected = {};
+          addonTagsEl.innerHTML = "";
+          draft.addons.forEach(function (id) {
+            if (!id || addonSelected[id]) {
+              return;
+            }
+            addonSelected[id] = true;
+            addonTagsEl.appendChild(renderAddonTag(id));
+          });
+          syncAddonHiddenInputs();
+          refreshAddonSelectDisabled();
+          updateAddonHint();
+        }
+        if (emailInput && draft.email) {
+          emailInput.value = draft.email;
+        }
+        if (notesEl && draft.notes != null) {
+          notesEl.value = draft.notes;
+        }
+        var addressEl = document.getElementById("booking-address");
+        if (addressEl && address) {
+          addressEl.value = address;
+        }
+        currentBookingStep = 1;
+        syncBookingPaginationUI();
+        if (addressEl && typeof addressEl.focus === "function") {
+          addressEl.focus();
+        }
+      }
+
+      if (bookingStepDotsEl) {
+        for (var di = 0; di < TOTAL_BOOKING_STEPS; di++) {
+          (function (stepIndex) {
+            var dot = document.createElement("button");
+            dot.type = "button";
+            dot.className = "booking-step-dot";
+            dot.setAttribute("role", "tab");
+            dot.setAttribute(
+              "aria-label",
+              "Booking step " + (stepIndex + 1) + " of " + TOTAL_BOOKING_STEPS,
+            );
+            dot.dataset.stepIndex = String(stepIndex);
+            dot.addEventListener("click", function () {
+              var tIdx = Number(dot.dataset.stepIndex);
+              if (tIdx === currentBookingStep) return;
+              if (tIdx < currentBookingStep) {
+                currentBookingStep = tIdx;
+                syncBookingPaginationUI();
+                if (submitMsg) submitMsg.textContent = "";
+                return;
+              }
+              if (bookingValidateStepsBefore(tIdx)) {
+                currentBookingStep = tIdx;
+                syncBookingPaginationUI();
+                if (submitMsg) submitMsg.textContent = "";
+              }
+            });
+            bookingStepDotsEl.appendChild(dot);
+          })(di);
+        }
+      }
+
+      if (bookingStepPrevEl) {
+        bookingStepPrevEl.addEventListener("click", function () {
+          if (currentBookingStep <= 0) return;
+          currentBookingStep -= 1;
+          syncBookingPaginationUI();
+          if (submitMsg) submitMsg.textContent = "";
+        });
+      }
+
+      if (bookingStepNextEl) {
+        bookingStepNextEl.addEventListener("click", function () {
+          if (currentBookingStep === 0) {
+            if (!validateBookingStep0()) return;
+          } else if (currentBookingStep === 1) {
+            if (!validateBookingStep1()) return;
+          }
+          if (currentBookingStep >= TOTAL_BOOKING_STEPS - 1) return;
+          currentBookingStep += 1;
+          syncBookingPaginationUI();
+          if (submitMsg) submitMsg.textContent = "";
+          var pan = bookingStepPanelsEl[currentBookingStep];
+          if (pan) {
+            var focusable = pan.querySelector("button, input, select, textarea, a");
+            if (focusable && typeof focusable.focus === "function") focusable.focus();
+          }
+        });
+      }
+
+      syncBookingPaginationUI();
+
+      var mapPickerLink = document.getElementById("booking-map-picker-link");
+      if (mapPickerLink) {
+        mapPickerLink.addEventListener("click", function () {
+          saveBookingDraftForMap();
+        });
+      }
+
+      function applyCheckoutLayout() {
+        if (paymentSection) paymentSection.hidden = !checkoutEnabled;
+        if (guestSection) guestSection.hidden = !(checkoutEnabled && !customerLoggedIn);
+        if (emailInput && checkoutEnabled && !customerLoggedIn) {
+          emailInput.required = true;
+          emailInput.readOnly = false;
+          emailInput.title = "";
+        }
+      }
+
+      setSubmitState(false, "Loading…");
+
+      Promise.all([
+        fetch("/api/bookings/checkout-config").then(function (r) {
+          return r.json();
+        }),
+        fetch("/api/auth/me", { credentials: "same-origin" }).then(function (r) {
+          return r.json();
+        }),
+      ])
+        .then(function (tuple) {
+          var cfg = tuple[0];
+          var me = tuple[1];
+          checkoutEnabled = !!(cfg && cfg.checkoutEnabled);
+          publishableKey = (cfg && cfg.publishableKey) || "";
+
+          customerLoggedIn = !!(me && me.loggedIn && !me.isAdmin && me.user && me.user.id != null);
+
+          if (me && me.loggedIn && me.isAdmin) {
+            if (bookingStepNavEl) bookingStepNavEl.hidden = true;
+            if (bookingSubmitRowEl) bookingSubmitRowEl.hidden = true;
+            if (submitMsg) {
+              submitMsg.textContent =
+                "Bookings must be submitted from a customer account. Sign out of admin or open a private window.";
+            }
+            setSubmitState(false);
+            return Promise.reject(new Error("admin"));
+          }
+
+          if (!checkoutEnabled && !customerLoggedIn) {
+            if (bookingStepNavEl) bookingStepNavEl.hidden = true;
+            if (bookingSubmitRowEl) bookingSubmitRowEl.hidden = true;
+            if (submitMsg) {
+              submitMsg.textContent =
+                "Sign in with your customer account to submit a booking — or configure Stripe (see .env.example) for guest checkout.";
+            }
+            setSubmitState(false);
+            return Promise.reject(new Error("guest-no-checkout"));
+          }
+
+          applyCheckoutLayout();
+
+          if (bookingStepNavEl) bookingStepNavEl.hidden = false;
+
+          if (bookingDraftFromMap) {
+            restoreBookingDraftFromMap(bookingDraftFromMap, mapReturnAddress);
+          } else if (mapReturnAddress) {
+            var addressInputEarly = document.getElementById("booking-address");
+            if (addressInputEarly) {
+              addressInputEarly.value = mapReturnAddress;
+            }
+            if (params.get("from") === "map") {
+              currentBookingStep = 1;
+              syncBookingPaginationUI();
+            }
+          }
+
+          if (customerLoggedIn && emailInput && me.user && me.user.email) {
+            cachedCustomerEmail = me.user.email;
+            emailInput.value = cachedCustomerEmail;
+            emailInput.readOnly = true;
+            emailInput.title = "Uses your signed-in email.";
+            emailInput.required = false;
+          }
+
+          if (checkoutEnabled && publishableKey) {
+            return loadStripeScript().then(function () {
+              stripeClient = window.Stripe(publishableKey);
+            });
+          }
+          return Promise.resolve();
+        })
+        .then(function () {
+          if (checkoutEnabled && stripeClient) {
+            return handleStripeReturnIfNeeded()
+              .then(function (handled) {
+                if (handled) return;
+                refreshQuote();
+                setSubmitState(true, defaultSubmitLabel());
+              })
+              .catch(function (err) {
+                refreshQuote();
+                setSubmitState(true, defaultSubmitLabel());
+                stripeCheckoutReturnError =
+                  err && err.message
+                    ? err.message
+                    : "Payment return failed — try again or contact support.";
+                if (err && !err.stripeDetail) {
+                  logPaymentDebug("stripe-return-catch", {
+                    message: err && err.message,
+                    stack: err && err.stack,
+                  });
+                }
+                showPaymentStatus(stripeCheckoutReturnError, "error");
+              });
+          }
+          refreshQuote();
+          setSubmitState(true, defaultSubmitLabel());
+        })
+        .then(function () {
+          if (stripeCheckoutReturnHandled || stripeCheckoutReturnError) return;
+          if (submitMsg && checkoutEnabled && !customerLoggedIn) {
+            submitMsg.textContent =
+              "Enter your email and password below, then pay with Stripe to complete your booking (no account sign-in required).";
+          } else if (submitMsg && checkoutEnabled && customerLoggedIn) {
+            submitMsg.textContent =
+              "Submit to pay with Stripe — your booking is recorded after payment succeeds.";
+          } else if (submitMsg && !checkoutEnabled) {
+            submitMsg.textContent = "";
+          }
+        })
+        .catch(function (err) {
+          if (err && err.message === "admin") return;
+          if (err && err.message === "guest-no-checkout") return;
+          if (bookingStepNavEl) bookingStepNavEl.hidden = true;
+          if (bookingSubmitRowEl) bookingSubmitRowEl.hidden = true;
+          if (submitMsg) {
+            submitMsg.textContent =
+              err && err.message
+                ? err.message
+                : "Cannot reach the server — open your site URL with the API running.";
+          }
+          setSubmitState(false);
+        });
+
+      if (bookingForm && submitBtn) {
+        bookingForm.addEventListener("submit", function (e) {
+          e.preventDefault();
+          stripNonAsciiNotes(notesEl);
+          if (!validateBookingStep0()) {
+            currentBookingStep = 0;
+            syncBookingPaginationUI();
+            return;
+          }
+          if (!validateBookingStep1()) {
+            currentBookingStep = 1;
+            syncBookingPaginationUI();
+            return;
+          }
+          if (submitBtn.disabled) return;
+
+          var cleaning = document.getElementById("booking-cleaning-type");
+          var addressEl = document.getElementById("booking-address");
+          var payload = {
+            cleaning_type: cleaning ? cleaning.value : "",
+            addons: addonIds(),
+            address: addressEl ? addressEl.value.trim() : "",
+            notes: notesEl ? notesEl.value : "",
+          };
+
+          if (checkoutEnabled && !customerLoggedIn) {
+            var pwEl = document.getElementById("booking-guest-password");
+            var pw2El = document.getElementById("booking-guest-password2");
+            var pwa = pwEl ? pwEl.value : "";
+            var pwb = pw2El ? pw2El.value : "";
+            if (pwa.length < 12) {
+              if (submitMsg) submitMsg.textContent = "Password must be at least 12 characters.";
+              return;
+            }
+            if (pwa !== pwb) {
+              if (submitMsg) submitMsg.textContent = "Password confirmation does not match.";
+              return;
+            }
+          }
+
+          if (!checkoutEnabled) {
+            setSubmitState(false, "Sending…");
+            if (submitMsg) submitMsg.textContent = "";
+
+            fetch("/api/bookings", {
+              method: "POST",
+              credentials: "same-origin",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            })
+              .then(function (r) {
+                return r.json().then(function (data) {
+                  return { ok: r.ok, data: data };
+                });
+              })
+              .then(function (res) {
+                setSubmitState(true, defaultSubmitLabel());
+                if (!res.ok) {
+                  if (submitMsg) submitMsg.textContent = res.data.error || "Could not submit booking.";
+                  return;
+                }
+                if (submitMsg) {
+                  submitMsg.textContent =
+                    res.data.message ||
+                    "Request received. An administrator will confirm it before it is finalized.";
+                }
+                bookingForm.reset();
+                addonSelected = {};
+                if (addonTagsEl) addonTagsEl.innerHTML = "";
+                syncAddonHiddenInputs();
+                refreshAddonSelectDisabled();
+                updateAddonHint();
+                refreshQuote();
+                var ein = document.getElementById("booking-email");
+                if (ein && cachedCustomerEmail) {
+                  ein.value = cachedCustomerEmail;
+                  ein.readOnly = true;
+                }
+              })
+              .catch(function () {
+                setSubmitState(true, defaultSubmitLabel());
+                if (submitMsg) {
+                  submitMsg.textContent =
+                    "Network error — check that the server is running and try again.";
+                }
+              });
+            return;
+          }
+
+          if (!window.__bookingQuoteCents) {
+            showPaymentStatus("Select a cleaning type to show your total.", "error");
+            return;
+          }
+          if (!validateGuestCheckoutFields()) {
+            return;
+          }
+          if (!stripePaymentElement || !stripeClientSecret) {
+            showPaymentStatus(
+              "Card form is still loading — wait a moment or refresh if this persists.",
+              "info",
+            );
+            ensureStripePaymentElement().catch(function (err) {
+              showPaymentStatus(
+                err && err.message ? err.message : "Payment form failed to load.",
+                "error",
+              );
+            });
+            return;
+          }
+
+          setSubmitState(false, "Processing payment…");
+          showPaymentStatus("Confirming payment with Stripe…", "info");
+
+          var guestExtra = collectGuestExtraForCheckout();
+          saveCheckoutDraft(payload, guestExtra);
+
+          stripeElements
+            .submit()
+            .then(function (submitResult) {
+              if (submitResult.error) {
+                throwFromStripeError(submitResult.error, "Payment failed.");
+              }
+              showPaymentStatus(
+                "If your bank asks, complete the Visa Secure verification step…",
+                "info",
+              );
+              return stripeClient.confirmPayment({
+                elements: stripeElements,
+                clientSecret: stripeClientSecret,
+                confirmParams: {
+                  return_url: stripeReturnUrl(),
+                },
+                redirect: "if_required",
+              });
+            })
+            .then(function (result) {
+              if (result.error) {
+                throwFromStripeError(result.error, "Payment failed.");
+              }
+              if (result.paymentIntent) {
+                return completePaidBooking(result.paymentIntent, payload, guestExtra);
+              }
+              return pollPaymentIntentUntilDone(stripeClientSecret, 8).then(function (pi) {
+                return completePaidBooking(pi, payload, guestExtra);
+              });
+            })
+            .then(function () {
+              stripeCheckoutReturnHandled = true;
+              setSubmitState(true, defaultSubmitLabel());
+            })
+            .catch(function (err) {
+              setSubmitState(true, defaultSubmitLabel());
+              if (err && !err.stripeDetail) {
+                logPaymentDebug("payment-catch", {
+                  message: err && err.message,
+                  stack: err && err.stack,
+                });
+              }
+              showPaymentStatus(
+                err && err.message ? err.message : "Payment failed — try another card.",
+                "error",
+              );
+            });
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

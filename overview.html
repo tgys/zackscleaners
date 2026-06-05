@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <base target="_top" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Overview — Zack&apos;s Maids</title>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="stylesheet" href="/auth.css" />
+  <link rel="stylesheet" href="/overview.css" />
+</head>
+<body class="overview-page">
+  <nav class="site-nav" data-site-nav aria-label="Primary navigation">
+    <div class="nav-auth">
+      <span class="nav-auth-guest">
+        <a class="nav-link" href="/login.html">Login</a>
+        <span class="nav-sep" aria-hidden="true">|</span>
+        <a class="nav-link" href="/register.html">Register</a>
+      </span>
+      <span class="nav-auth-user" hidden>
+        <span class="nav-user-session">
+          <img class="nav-user-icon-img" src="/user-svgrepo-com.svg" alt="" width="18" height="18" />
+          <span class="nav-user-name" id="nav-user-display-name"></span>
+          <span class="nav-sep" aria-hidden="true">|</span>
+          <button type="button" class="nav-link nav-link-btn" id="nav-logout">Logout</button>
+        </span>
+      </span>
+    </div>
+    <ul class="nav-menu">
+      <li><a class="nav-link" href="/demo.html">Home</a></li>
+      <li class="nav-sep" aria-hidden="true">|</li>
+      <li>
+        <a class="nav-link" href="/bookings.html">Services</a>
+      </li>
+      <li class="nav-sep" data-requires-auth-any hidden aria-hidden="true">|</li>
+      <li data-requires-auth-regular hidden>
+        <a class="nav-link" href="/bookings.html">My Bookings</a>
+      </li>
+      <li data-requires-admin hidden>
+        <a class="nav-link" href="/overview.html" aria-current="page">All Bookings</a>
+      </li>
+      <li class="nav-sep" data-requires-admin hidden aria-hidden="true">|</li>
+      <li data-requires-admin hidden>
+        <a class="nav-link" href="/all-users.html">All users</a>
+      </li>
+      <li class="nav-sep" data-requires-admin hidden aria-hidden="true">|</li>
+      <li data-requires-admin hidden>
+        <a class="nav-link" href="/messages.html">Messages</a>
+      </li>
+      <li class="nav-sep" data-requires-admin hidden aria-hidden="true">|</li>
+      <li data-requires-admin hidden>
+        <a class="nav-link" href="/admin-settings.html">Settings</a>
+      </li>
+      <li class="nav-sep" aria-hidden="true">|</li>
+      <li><a class="nav-link" href="/about.html">About</a></li>
+      <li class="nav-sep" aria-hidden="true">|</li>
+      <li><a class="nav-link" href="/contact.html">Contact</a></li>
+    </ul>
+  </nav>
+
+  <main class="overview-main">
+    <p id="overview-loading">Checking access…</p>
+    <div id="overview-content" hidden>
+      <div class="overview-stat-grid">
+        <div class="overview-stat">
+          <strong id="stat-total-bookings">—</strong>
+          <span id="stat-total-label">Active bookings (this list)</span>
+        </div>
+        <div class="overview-stat">
+          <strong id="stat-pending-approval">—</strong>
+          <span>Awaiting your approval</span>
+        </div>
+      </div>
+
+      <section class="overview-panel" aria-labelledby="overview-assign-heading">
+        <h1 id="overview-assign-heading">Bookings</h1>
+        <p class="overview-lede">
+          Assign cleaners, update status (<strong>In progress</strong>, <strong>Completed</strong>, etc.), and filter the list.
+          Paid <strong>$2 tips</strong> auto-confirm when payment succeeds. Cleaning bookings stay <strong>Awaiting approval</strong> until you confirm them.
+          Use <strong>Refund</strong> to return the card payment via Stripe (row stays visible). <strong>Refund &amp; remove</strong> refunds and hides the row.
+        </p>
+        <div class="overview-filter-bar">
+          <label class="overview-filter-label" for="overview-booking-filter">Type</label>
+          <select id="overview-booking-filter" class="overview-filter-select" aria-label="Filter by booking type">
+            <option value="all">All bookings</option>
+            <option value="tips">Tips only ($2)</option>
+          </select>
+          <label class="overview-filter-label" for="overview-status-filter">Status</label>
+          <select id="overview-status-filter" class="overview-filter-select" aria-label="Filter by status">
+            <option value="all">Any status</option>
+            <option value="pending_confirmation">Awaiting approval</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="in_progress">In progress</option>
+            <option value="completed">Completed</option>
+            <option value="refunded">Refunded</option>
+          </select>
+          <label class="overview-filter-label" for="overview-assigned-filter">Cleaner</label>
+          <select id="overview-assigned-filter" class="overview-filter-select" aria-label="Filter by assigned cleaner">
+            <option value="all">Any cleaner</option>
+            <option value="unassigned">Unassigned only</option>
+          </select>
+        </div>
+        <div class="overview-table-wrap">
+          <table class="overview-table overview-table--compact" aria-describedby="overview-assign-heading">
+            <thead>
+              <tr>
+                <th scope="col">ID</th>
+                <th scope="col">Status</th>
+                <th scope="col">Customer</th>
+                <th scope="col">Service</th>
+                <th scope="col">Paid</th>
+                <th scope="col">Cleaner</th>
+                <th scope="col">Add-ons</th>
+                <th scope="col">Address</th>
+                <th scope="col">Notes</th>
+                <th scope="col">Requested</th>
+                <th scope="col">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="overview-tbody"></tbody>
+          </table>
+        </div>
+        <p id="overview-toast" class="overview-toast" role="status" aria-live="polite"></p>
+      </section>
+    </div>
+  </main>
+
+  <script src="/auth-client.js" defer></script>
+  <script src="/overview.js" defer></script>
+</body>
+</html>

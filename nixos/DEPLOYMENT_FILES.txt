@@ -1,0 +1,13 @@
+Tracked copies of production Nix + systemd artifacts
+===================================================
+
+- **`flake.nix` / `flake.lock`** — same as **`/etc/nixos`** on piwibox (source of truth for `nixos-rebuild --flake`).
+- **`configuration.nix`** — zacks-only snippet for this repo. Rei uses `configuration.rei-snippet.example.nix` in the rei repo.
+- **`configuration.zacks-snippet.example.nix`**, **`configuration.rei-snippet.example.nix`** — portable imports for single-site hosts.
+- **`zacks-maids.nix`**, **`zacks-maids-production.nix`**, **`rei-maids.nix`**, **`rei-maids-production.nix`**, **`maids-shared-mail.nix`**, **`headless-server.nix`** — shared modules (both sites on production).
+
+- **`systemd-effective/`** — `systemctl cat` dumps of Zack's-related units plus ACME helpers (see **`systemd-effective/README.txt`**).
+
+Regenerate **`flake.*`** after edits on the host:
+
+  sudo cp /etc/nixos/flake.nix /etc/nixos/flake.lock /path/to/repo/nixos/

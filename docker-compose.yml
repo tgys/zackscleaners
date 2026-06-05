@@ -1,0 +1,35 @@
+# Portable Postgres for zacks.cleaners.tesko.io (separate from rei.tesko.io on 5434).
+# NixOS: services.zacksMaids.podmanDb uses this file via docker-compose (root Docker).
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: zacks
+      POSTGRES_PASSWORD: zacks_dev
+      POSTGRES_DB: zacks_maids
+    ports:
+      - "5433:5432"
+    volumes:
+      - zacks_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zacks -d zacks_maids"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    image: node:22-alpine
+    working_dir: /app/server
+    environment:
+      DATABASE_URL: postgresql://zacks:zacks_dev@db:5432/zacks_maids
+    volumes:
+      - ./server:/app/server:ro
+      - ./migrations:/app/migrations:ro
+      - ./.env:/app/.env:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["node", "scripts/migrate.js"]
+
+volumes:
+  zacks_pgdata:

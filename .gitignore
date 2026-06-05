@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+node_modules/
+server/node_modules/
+frontend/node_modules/
+frontend/dist/
+*.log
+server/data/
+.DS_Store
+
+# Nix build output symlink
+/result
+
+# Rei logo archives (not used by zacks site)
+*.zip

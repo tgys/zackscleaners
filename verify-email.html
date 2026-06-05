@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Verify email — Zack&apos;s Maids</title>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="stylesheet" href="/auth.css" />
+</head>
+<body>
+  <nav class="site-nav" data-site-nav aria-label="Primary navigation">
+    <div class="nav-auth">
+      <span class="nav-auth-guest">
+        <a class="nav-link" href="/login.html">Login</a>
+        <span class="nav-sep" aria-hidden="true">|</span>
+        <a class="nav-link" href="/register.html">Register</a>
+      </span>
+      <span class="nav-auth-user" hidden>
+        <span class="nav-user-session">
+          <img class="nav-user-icon-img" src="/user-svgrepo-com.svg" alt="" width="18" height="18" />
+          <span class="nav-user-name" id="nav-user-display-name"></span>
+          <span class="nav-sep" aria-hidden="true">|</span>
+          <button type="button" class="nav-link nav-link-btn" id="nav-logout">Logout</button>
+        </span>
+      </span>
+    </div>
+    <ul class="nav-menu">
+      <li><a class="nav-link" href="/demo.html">Home</a></li>
+      <li class="nav-sep" aria-hidden="true">|</li>
+      <li><a class="nav-link" href="/bookings.html">Services</a></li>
+      <li class="nav-sep" data-requires-auth-any hidden aria-hidden="true">|</li>
+      <li data-requires-auth-regular hidden><a class="nav-link" href="/bookings.html">My Bookings</a></li>
+      <li data-requires-admin hidden><a class="nav-link" href="/overview.html">All Bookings</a></li>
+      <li class="nav-sep" data-requires-admin hidden aria-hidden="true">|</li>
+      <li data-requires-admin hidden><a class="nav-link" href="/all-users.html">All users</a></li>
+      <li class="nav-sep" aria-hidden="true">|</li>
+      <li><a class="nav-link" href="#">About</a></li>
+      <li class="nav-sep" aria-hidden="true">|</li>
+      <li><a class="nav-link" href="#">Contact</a></li>
+    </ul>
+  </nav>
+
+  <main class="auth-shell">
+    <div class="auth-card">
+      <h1>Email verification</h1>
+      <p id="verify-loading" class="auth-lede">
+        Confirming your email from an older link… New signups use a 6-digit code on the registration confirmation page.
+      </p>
+      <div id="verify-error" class="msg-error" role="alert" aria-live="polite"></div>
+      <p id="verify-success" class="auth-lede" hidden>Success — redirecting you to the site.</p>
+      <p id="verify-footer" class="auth-footer" hidden>
+        <a href="/login.html">Sign in</a> · <a href="/resend-verification.html">Resend code</a>
+      </p>
+    </div>
+  </main>
+
+  <script src="/auth-client.js" defer></script>
+</body>
+</html>

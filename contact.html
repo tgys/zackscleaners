@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contact — Zack&apos;s Maids</title>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="stylesheet" href="/auth.css" />
+</head>
+<body>
+  <nav class="site-nav" data-site-nav aria-label="Primary navigation">
+    <div class="nav-auth">
+      <span class="nav-auth-guest">
+        <a class="nav-link" href="/login.html">Login</a>
+        <span class="nav-sep" aria-hidden="true">|</span>
+        <a class="nav-link" href="/register.html">Register</a>
+      </span>
+      <span class="nav-auth-user" hidden>
+        <span class="nav-user-session">
+          <img class="nav-user-icon-img" src="/user-svgrepo-com.svg" alt="" width="18" height="18" />
+          <span class="nav-user-name" id="nav-user-display-name"></span>
+          <span class="nav-sep" aria-hidden="true">|</span>
+          <button type="button" class="nav-link nav-link-btn" id="nav-logout">Logout</button>
+        </span>
+      </span>
+    </div>
+    <ul class="nav-menu">
+      <li><a class="nav-link" href="/demo.html">Home</a></li>
+      <li class="nav-sep" aria-hidden="true">|</li>
+      <li>
+        <a class="nav-link" href="/bookings.html">Services</a>
+      </li>
+      <li class="nav-sep" data-requires-auth-any hidden aria-hidden="true">|</li>
+      <li data-requires-auth-regular hidden>
+        <a class="nav-link" href="/bookings.html">My Bookings</a>
+      </li>
+      <li data-requires-admin hidden>
+        <a class="nav-link" href="/overview.html">All Bookings</a>
+      </li>
+      <li class="nav-sep" data-requires-admin hidden aria-hidden="true">|</li>
+      <li data-requires-admin hidden>
+        <a class="nav-link" href="/all-users.html">All users</a>
+      </li>
+      <li class="nav-sep" data-requires-admin hidden aria-hidden="true">|</li>
+      <li data-requires-admin hidden>
+        <a class="nav-link" href="/messages.html">Messages</a>
+      </li>
+      <li class="nav-sep" data-requires-admin hidden aria-hidden="true">|</li>
+      <li data-requires-admin hidden>
+        <a class="nav-link" href="/admin-settings.html">Settings</a>
+      </li>
+      <li class="nav-sep" aria-hidden="true">|</li>
+      <li><a class="nav-link" href="/about.html">About</a></li>
+      <li class="nav-sep" aria-hidden="true">|</li>
+      <li><a class="nav-link" href="/contact.html" aria-current="page">Contact</a></li>
+    </ul>
+  </nav>
+
+  <main class="auth-shell auth-shell--contact-split">
+    <div class="auth-card">
+      <h1>Contact us</h1>
+      <p class="auth-lede">
+        Send a note to Zack&apos;s Maids. We read every message and reply when we have capacity.
+      </p>
+
+      <div id="contact-error" class="msg-error" role="alert" aria-live="polite"></div>
+      <div id="contact-success" class="msg-success" role="status" aria-live="polite" hidden></div>
+
+      <form id="contact-form" class="auth-form" method="post" action="/api/contact">
+        <label for="contact-email">Email</label>
+        <input id="contact-email" name="email" type="email" autocomplete="email" required />
+
+        <label for="contact-name">Name</label>
+        <input id="contact-name" name="name" type="text" autocomplete="name" required />
+
+        <label for="contact-phone-prefix-trigger">Country code</label>
+        <div class="auth-form-phone-prefix-widget">
+          <button
+            type="button"
+            id="contact-phone-prefix-trigger"
+            class="auth-form-phone-prefix-widget__trigger"
+            aria-haspopup="listbox"
+            aria-expanded="false"
+            aria-controls="contact-phone-prefix-list"
+          ></button>
+          <div
+            id="contact-phone-prefix-list"
+            class="auth-form-phone-prefix-widget__dropdown"
+            hidden
+            role="listbox"
+          ></div>
+          <select
+            id="contact-phone-prefix"
+            class="auth-form-phone-prefix-native"
+            name="phonePrefix"
+            required
+            autocomplete="tel-country-code"
+            tabindex="-1"
+          >
+          <!--PHONE_PREFIX_OPTIONS-->
+        </select>
+        </div>
+
+        <label for="contact-phone-national">Mobile number</label>
+        <input
+          id="contact-phone-national"
+          name="phoneNational"
+          type="tel"
+          inputmode="numeric"
+          autocomplete="tel-national"
+          required
+          maxlength="15"
+          placeholder="Digits only (no country code)"
+          aria-describedby="contact-phone-hint"
+        />
+        <p id="contact-phone-hint" class="auth-field-hint">
+          Choose your country code, then enter only the national number (digits only). Omit any trunk prefix such as a leading 0
+          if validation still fails.
+        </p>
+
+        <label for="contact-title">Message title</label>
+        <input
+          id="contact-title"
+          name="title"
+          type="text"
+          required
+          maxlength="300"
+          autocomplete="off"
+          spellcheck="true"
+          aria-describedby="contact-title-hint"
+        />
+        <p id="contact-title-hint" class="auth-field-hint">ASCII letters, numbers, and punctuation only.</p>
+
+        <label for="contact-body">Message</label>
+        <textarea
+          id="contact-body"
+          name="body"
+          rows="6"
+          required
+          maxlength="10000"
+          autocomplete="off"
+          spellcheck="true"
+          aria-describedby="contact-body-hint"
+        ></textarea>
+        <p id="contact-body-hint" class="auth-field-hint">ASCII text only; line breaks are allowed.</p>
+
+        <button type="submit" class="btn-primary" data-label="Send message">Send message</button>
+      </form>
+    </div>
+
+    <div class="auth-card">
+      <h1>Work with us</h1>
+      <p class="auth-lede">
+        Interested in joining the team? Send your details and a PDF CV (one page typical — max file size 1&nbsp;MB).
+      </p>
+
+      <div id="recruitment-error" class="msg-error" role="alert" aria-live="polite"></div>
+      <div id="recruitment-success" class="msg-success" role="status" aria-live="polite" hidden></div>
+
+      <form id="recruitment-form" class="auth-form" method="post" action="/api/recruitment" enctype="multipart/form-data">
+        <label for="recruitment-name">Full name</label>
+        <input id="recruitment-name" name="name" type="text" autocomplete="name" required maxlength="200" />
+
+        <label for="recruitment-address">Address including postcode</label>
+        <textarea
+          id="recruitment-address"
+          name="address"
+          rows="4"
+          required
+          maxlength="4000"
+          spellcheck="true"
+          aria-describedby="recruitment-address-hint"
+        ></textarea>
+        <p id="recruitment-address-hint" class="auth-field-hint">Street, city/town, and postcode.</p>
+
+        <label for="recruitment-email">Email</label>
+        <input id="recruitment-email" name="email" type="email" autocomplete="email" required />
+
+        <label for="recruitment-phone-prefix-trigger">Country code</label>
+        <div class="auth-form-phone-prefix-widget">
+          <button
+            type="button"
+            id="recruitment-phone-prefix-trigger"
+            class="auth-form-phone-prefix-widget__trigger"
+            aria-haspopup="listbox"
+            aria-expanded="false"
+            aria-controls="recruitment-phone-prefix-list"
+          ></button>
+          <div
+            id="recruitment-phone-prefix-list"
+            class="auth-form-phone-prefix-widget__dropdown"
+            hidden
+            role="listbox"
+          ></div>
+          <select
+            id="recruitment-phone-prefix"
+            class="auth-form-phone-prefix-native"
+            name="phonePrefix"
+            required
+            autocomplete="tel-country-code"
+            tabindex="-1"
+          >
+          <!--PHONE_PREFIX_OPTIONS-->
+        </select>
+        </div>
+
+        <label for="recruitment-phone-national">Mobile number</label>
+        <input
+          id="recruitment-phone-national"
+          name="phoneNational"
+          type="tel"
+          inputmode="numeric"
+          autocomplete="tel-national"
+          required
+          maxlength="15"
+          placeholder="Digits only (no country code)"
+          aria-describedby="recruitment-phone-hint"
+        />
+        <p id="recruitment-phone-hint" class="auth-field-hint">
+          Same format as the contact form — national digits only after choosing code.
+        </p>
+
+        <label for="recruitment-cv">CV (PDF)</label>
+        <input
+          id="recruitment-cv"
+          name="cv"
+          type="file"
+          accept="application/pdf,.pdf"
+          required
+          aria-describedby="recruitment-cv-hint"
+        />
+        <p id="recruitment-cv-hint" class="auth-field-hint">
+          PDF only, maximum 1&nbsp;MB (enough for a typical single-page CV).
+        </p>
+
+        <button type="submit" class="btn-primary" data-label="Submit application">Submit application</button>
+      </form>
+    </div>
+  </main>
+
+  <script src="/contact-phone-select.js"></script>
+  <script src="/auth-client.js" defer></script>
+</body>
+</html>

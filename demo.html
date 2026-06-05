@@ -1,0 +1,2216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <base target="_top" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zack's Maids Logo Demo</title>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+  <link rel="stylesheet" href="/auth.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300;400;500&family=Monoton&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder@2.4.0/dist/Control.Geocoder.css" />
+  <style>
+    /* Nav uses Bootstrap-like row height (~3.5rem). */
+    :root {
+      --nav-row-height: 3.5rem;
+      --page-bg: #061018;
+    }
+    html {
+      min-height: 100%;
+      height: auto;
+      scroll-behavior: smooth;
+    }
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      min-height: 100dvh;
+      height: auto;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      overflow-y: scroll;
+      background: var(--page-bg);
+      color: #e8eef5;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.5;
+    }
+    .site-nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      flex-shrink: 0;
+      min-height: var(--nav-row-height);
+      padding: 0 clamp(1rem, 4vw, 1.5rem);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem 1rem;
+      /* Low-alpha tint + blur so underlying maps read through; heavier blur keeps type legible */
+      background: rgba(6, 16, 24, 0.42);
+      backdrop-filter: blur(16px) saturate(1.15);
+      -webkit-backdrop-filter: blur(16px) saturate(1.15);
+      border-bottom: 1px solid rgba(102, 221, 255, 0.18);
+    }
+    .nav-auth {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0;
+    }
+    .nav-menu {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .site-nav a.nav-link {
+      color: rgba(232, 238, 245, 0.85);
+      text-decoration: none;
+      font-size: 0.9375rem;
+      font-weight: 400;
+      padding: 0.35rem 0.55rem;
+      border-radius: 4px;
+      background: transparent;
+      transition: color 0.15s ease, background-color 0.15s ease;
+    }
+    .site-nav a.nav-link:hover {
+      color: #e8fbff;
+      background-color: rgba(102, 221, 255, 0.14);
+    }
+    .site-nav .nav-sep {
+      color: rgba(232, 238, 245, 0.28);
+      font-size: 0.9375rem;
+      user-select: none;
+      pointer-events: none;
+    }
+    .nav-auth .nav-sep {
+      padding: 0 0.35rem;
+    }
+    .nav-menu li.nav-sep {
+      color: rgba(232, 238, 245, 0.28);
+      font-size: 0.9375rem;
+      padding: 0 0.35rem;
+    }
+    /* Vertical stack: hero + full-viewport map stages (scroll past hero / NYC maps with wheel or scrollbar). */
+    .site-main {
+      flex: 1 1 auto;
+      width: 100%;
+      max-width: 100vw;
+      display: flex;
+      flex-direction: column;
+      min-height: min-content;
+    }
+    .site-banner {
+      flex: 0 0 auto;
+      width: 100%;
+      height: 50vh;
+      min-height: 50vh;
+      max-height: 50vh;
+      display: flex;
+      flex-direction: column;
+      background: transparent;
+      overflow: hidden;
+      pointer-events: auto;
+    }
+    /* Takes full 50vh hero strip */
+    .banner-graphic {
+      flex: 1 1 auto;
+      min-height: 0;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      position: relative;
+      overflow: hidden;
+      background: transparent;
+      border-bottom: 1px solid rgba(102, 221, 255, 0.18);
+    }
+    /* Single veil on the div — map shows through; no duplicate of the old full-frame SVG rects */
+    .banner-graphic::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      background: linear-gradient(
+        to bottom,
+        rgba(6, 16, 24, 0.55) 0%,
+        rgba(6, 16, 24, 0.26) 38%,
+        rgba(6, 16, 24, 0.08) 68%,
+        rgba(6, 16, 24, 0.02) 90%,
+        rgba(6, 16, 24, 0.005) 100%
+      );
+      backdrop-filter: blur(3px);
+      -webkit-backdrop-filter: blur(3px);
+      pointer-events: none;
+    }
+    /* Flush top + full box: a top inset was shortening the stack and pushing art downward */
+    .logo-wrap {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      max-width: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.45));
+      z-index: 1;
+    }
+    /* Shorter than full strip so art isn't slice-zoomed; meet keeps full logo in view */
+    .logo-wrap svg {
+      width: 100%;
+      height: 88%;
+      flex: 0 0 auto;
+      display: block;
+    }
+    /* Leaflet map tiles + SES/mobile flex: host must fill the grid/flex cell */
+    .main-stage {
+      position: relative;
+      flex: 0 0 auto;
+      width: 100vw;
+      max-width: 100vw;
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      min-height: 100vh;
+      min-height: 100dvh;
+      height: 100vh;
+      height: 100dvh;
+      display: grid;
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr;
+    }
+    .map-stack.map-stack--fullpage {
+      grid-column: 1;
+      grid-row: 1;
+      position: relative;
+      z-index: 0;
+      width: 100%;
+      height: 100%;
+      min-height: 100%;
+      align-self: stretch;
+      justify-self: stretch;
+      isolation: isolate;
+    }
+    .main-stage-front {
+      grid-column: 1;
+      grid-row: 1;
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      align-self: stretch;
+      justify-self: stretch;
+      display: flex;
+      flex-direction: column;
+      pointer-events: none;
+    }
+    .arcgis-map-host {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      outline: none;
+      display: block;
+      box-sizing: border-box;
+    }
+    .leaflet-container.arcgis-map-host {
+      min-height: 100%;
+    }
+    /* Transportation raster uses orange highways; blend shifts hues toward cyan/blue.
+       Cover full map — a previous bottom gap exposed raw grey/orange tiles above attribution. */
+    /* Inside Leaflet container: above tile panes (~200–400), below controls (~1000). */
+    .leaflet-container .map-road-bluewash {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 550;
+      background: rgb(72, 196, 255);
+      mix-blend-mode: color;
+      opacity: 0.44;
+    }
+    /* mix-blend-mode is costly while panning/zooming — hide until the map settles */
+    .leaflet-container.map-interacting .map-road-bluewash {
+      opacity: 0;
+    }
+    #arcgisMapViewNYC.leaflet-container,
+    #arcgisMapViewNYC .leaflet-container {
+      cursor: crosshair;
+    }
+    .arcgis-map-host.leaflet-container {
+      font-family: inherit;
+      background: #252525;
+    }
+    .arcgis-map-host .leaflet-control-attribution {
+      background-color: rgba(6, 18, 28, 0.92) !important;
+      color: rgba(200, 238, 255, 0.88) !important;
+      border-radius: 4px 4px 0 0;
+      font-size: 0.7rem;
+      max-width: 100%;
+    }
+    .arcgis-map-host .leaflet-control-attribution a {
+      color: rgba(136, 221, 255, 0.95) !important;
+    }
+
+    /* NYC explorer + NJ coverage maps: cyan glass zoom bar (search UI stays NYC-only below) */
+    #arcgisMapViewNYC .leaflet-bar,
+    #arcgisMapViewCoverage .leaflet-bar {
+      border: 1px solid rgba(102, 221, 255, 0.42);
+      border-radius: 6px;
+      overflow: hidden;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    }
+    #arcgisMapViewNYC .leaflet-bar a,
+    #arcgisMapViewCoverage .leaflet-bar a {
+      background-color: rgba(10, 42, 62, 0.72) !important;
+      color: rgba(190, 242, 255, 0.96) !important;
+      border-color: rgba(102, 221, 255, 0.28) !important;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    #arcgisMapViewNYC .leaflet-bar a:hover,
+    #arcgisMapViewCoverage .leaflet-bar a:hover {
+      background-color: rgba(18, 72, 102, 0.82) !important;
+      color: #f0fdff !important;
+    }
+    #arcgisMapViewNYC .leaflet-bar a.leaflet-disabled,
+    #arcgisMapViewCoverage .leaflet-bar a.leaflet-disabled {
+      background-color: rgba(10, 36, 52, 0.45) !important;
+      color: rgba(160, 200, 215, 0.38) !important;
+    }
+    /* Fixed nav overlays map — keep zoom / geocoder below the bar */
+    #arcgisMapViewNYC .leaflet-top.leaflet-right,
+    #arcgisMapViewCoverage .leaflet-top {
+      top: calc(var(--nav-row-height) + 0.5rem);
+    }
+
+    #arcgisMapViewNYC .leaflet-control-geocoder {
+      border-radius: 8px;
+      background: rgba(12, 46, 68, 0.74) !important;
+      border: 1px solid rgba(102, 221, 255, 0.4);
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.38);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    #arcgisMapViewNYC .leaflet-control-geocoder-expanded {
+      min-width: min(30rem, calc(100vw - 2.75rem));
+      background: rgba(6, 12, 18, 0.88) !important;
+      border-color: rgba(102, 221, 255, 0.38);
+    }
+    #arcgisMapViewNYC .leaflet-touch .leaflet-control-geocoder {
+      border-radius: 8px;
+    }
+    #arcgisMapViewNYC .leaflet-control-geocoder-icon {
+      width: 2.25rem;
+      height: 2.25rem;
+      background-color: rgba(102, 221, 255, 0.12) !important;
+      border-radius: 6px;
+      filter: invert(92%) sepia(22%) saturate(420%) hue-rotate(155deg) brightness(104%);
+    }
+    #arcgisMapViewNYC .leaflet-control-geocoder-throbber .leaflet-control-geocoder-icon {
+      filter: invert(92%) sepia(22%) saturate(420%) hue-rotate(155deg) brightness(104%);
+    }
+    #arcgisMapViewNYC .leaflet-control-geocoder-form input {
+      font-family: inherit;
+      font-size: 1.0625rem;
+      width: min(26rem, calc(100vw - 6rem)) !important;
+      min-height: 2.75rem;
+      box-sizing: border-box;
+      background-color: rgba(4, 10, 16, 0.82) !important;
+      color: rgba(232, 238, 245, 0.96) !important;
+      border-radius: 6px;
+      padding: 10px 14px;
+      margin: 4px 6px 4px 4px;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    #arcgisMapViewNYC .leaflet-control-geocoder-form input::placeholder {
+      color: rgba(160, 196, 212, 0.55);
+    }
+    #arcgisMapViewNYC .leaflet-control-geocoder-alternatives {
+      background-color: rgba(5, 10, 16, 0.92) !important;
+      border-top: 1px solid rgba(102, 221, 255, 0.22);
+      border-radius: 0 0 5px 5px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    }
+    #arcgisMapViewNYC .leaflet-control-geocoder-alternatives li {
+      border-bottom-color: rgba(102, 221, 255, 0.14);
+      color: rgba(225, 242, 252, 0.94);
+    }
+    #arcgisMapViewNYC .leaflet-control-geocoder-alternatives li:hover,
+    #arcgisMapViewNYC .leaflet-control-geocoder-selected {
+      background-color: rgba(102, 221, 255, 0.12) !important;
+    }
+    #arcgisMapViewNYC .leaflet-control-geocoder-address-detail {
+      color: rgba(232, 240, 248, 0.96);
+    }
+    #arcgisMapViewNYC .leaflet-control-geocoder-address-context {
+      color: rgba(150, 190, 208, 0.72) !important;
+    }
+    #arcgisMapViewNYC .leaflet-control-geocoder-error {
+      color: rgba(255, 196, 196, 0.88);
+    }
+    .panels-float {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 1rem;
+      padding: 0 clamp(1rem, 4vw, 1.5rem) clamp(2.75rem, 5vh, 3.5rem);
+      pointer-events: none;
+      min-height: 0;
+    }
+    .hero-intro-box {
+      pointer-events: auto;
+      margin: 0 auto;
+      max-width: min(42rem, 96vw);
+      padding: 1.25rem 1.5rem;
+      background: rgba(0, 0, 0, 0.22);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.32);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .hero-intro-box__text {
+      margin: 0;
+      font-family: "Roboto Mono", ui-monospace, "Cascadia Code", "Source Code Pro", monospace;
+      font-weight: 300;
+      font-size: clamp(0.85rem, 1.85vw, 0.95rem);
+      line-height: 1.65;
+      color: rgba(232, 238, 245, 0.94);
+      text-align: left;
+    }
+    /* Hero map strip — bottom call-to-action */
+    .map-book-cta {
+      pointer-events: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.85rem;
+      padding: 1.65rem 2.85rem 1.35rem;
+      margin: 0 auto;
+      max-width: min(42rem, 96vw);
+      text-align: center;
+      text-decoration: none;
+      color: #5c8f6e;
+      background: rgba(0, 0, 0, 0.32);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 14px;
+      box-shadow: 0 10px 32px rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      transition:
+        color 0.2s ease,
+        box-shadow 0.22s ease;
+    }
+    .map-book-cta:hover {
+      color: #86efac;
+      box-shadow:
+        0 16px 44px rgba(0, 0, 0, 0.42),
+        0 0 36px rgba(102, 221, 255, 0.32),
+        0 0 56px rgba(134, 239, 172, 0.14);
+    }
+    .map-book-cta:focus-visible {
+      outline: 2px solid rgba(102, 221, 255, 0.65);
+      outline-offset: 3px;
+    }
+    .map-book-cta__label {
+      font-family: "Monoton", system-ui, sans-serif;
+      font-weight: 400;
+      font-size: clamp(2rem, 5.5vw, 2.65rem);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: inherit;
+      line-height: 1.15;
+    }
+    .map-book-cta__arrow {
+      display: block;
+      width: 3.35rem;
+      height: 3.35rem;
+      flex-shrink: 0;
+      overflow: visible;
+      color: inherit;
+    }
+    /* Phase 1 fixed rails until ZIP overlay: when NYC (#nyc-explorer) bottom reaches viewport bottom */
+    .scroll-float-chips {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: clamp(1rem, 7vh, 4rem);
+      /* Above Leaflet tile panes; must beat inactive ZIP overlay so chips show when scrolling back up */
+      z-index: 920;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: clamp(0.5rem, 2vw, 1.25rem);
+      padding: 0 max(0.65rem, env(safe-area-inset-left, 0px)) max(0.35rem, env(safe-area-inset-bottom, 0px))
+        max(0.65rem, env(safe-area-inset-right, 0px));
+      pointer-events: none;
+    }
+    .scroll-float-chips__rail {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      flex: 0 1 min(14.5rem, 38vw);
+      max-width: min(17rem, 42vw);
+      pointer-events: none;
+    }
+    .scroll-float-chips__rail--left {
+      align-items: flex-start;
+    }
+    .scroll-float-chips__rail--right {
+      align-items: flex-end;
+    }
+    .scroll-float-chips .banner-chip {
+      width: 100%;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(14px);
+      transition:
+        opacity 0.42s cubic-bezier(0.22, 1, 0.32, 1),
+        transform 0.42s cubic-bezier(0.22, 1, 0.32, 1),
+        visibility 0s linear 0.42s;
+      pointer-events: none;
+    }
+    /* Phase 1 only (hero/NYC): ZIP chips live on #coverage-map-chip-overlay */
+    html.scroll-chips-phase1 .scroll-float-chips--phase1 .banner-chip {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+      pointer-events: auto;
+      transition-delay: 0s, 0s, 0s;
+      transition-duration: 0.42s, 0.42s, 0s;
+    }
+    .scroll-float-chips__rail--left .banner-chip:nth-child(1) {
+      transition-delay: 0s;
+    }
+    .scroll-float-chips__rail--left .banner-chip:nth-child(2) {
+      transition-delay: 0.06s;
+    }
+    .scroll-float-chips__rail--right .banner-chip:nth-child(1) {
+      transition-delay: 0.03s;
+    }
+    .scroll-float-chips__rail--right .banner-chip:nth-child(2) {
+      transition-delay: 0.09s;
+    }
+    .banner-chip {
+      width: 100%;
+      max-width: none;
+      flex: none;
+      padding: 0.65rem 1.1rem;
+      font-size: 0.875rem;
+      line-height: 1.4;
+      color: rgba(225, 248, 255, 0.94);
+      background: rgba(8, 28, 42, 0.72);
+      border: 1px solid rgba(102, 221, 255, 0.38);
+      border-radius: 6px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+    }
+
+    /* NYC map: full-address pin — book slot (Monoton like hero Book now; cyan box like chips; white type) */
+    #arcgisMapViewNYC .leaflet-div-icon.nyc-address-pin-divicon {
+      background: none !important;
+      border: none !important;
+      margin: 0 !important;
+    }
+    #arcgisMapViewNYC .nyc-book-slot-wrap {
+      position: absolute;
+      z-index: 650;
+      pointer-events: none;
+      max-width: min(16rem, calc(100vw - 4rem));
+      visibility: hidden;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+    #arcgisMapViewNYC .nyc-book-slot-wrap.is-visible {
+      visibility: visible;
+      opacity: 1;
+      pointer-events: auto;
+    }
+    #arcgisMapViewNYC .nyc-book-slot {
+      display: block;
+      width: 100%;
+      margin: 0;
+      padding: 0.55rem 1rem;
+      box-sizing: border-box;
+      font-family: "Monoton", system-ui, sans-serif;
+      font-weight: 400;
+      font-size: clamp(0.85rem, 2.1vw, 1.05rem);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      line-height: 1.2;
+      text-align: center;
+      color: #ffffff;
+      background: rgba(8, 28, 42, 0.72);
+      border: 1px solid rgba(102, 221, 255, 0.38);
+      border-radius: 6px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+      cursor: pointer;
+      transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease,
+        color 0.15s ease;
+    }
+    #arcgisMapViewNYC .nyc-book-slot:hover {
+      border-color: rgba(102, 221, 255, 0.55);
+      box-shadow:
+        0 8px 28px rgba(0, 0, 0, 0.35),
+        0 0 20px rgba(102, 221, 255, 0.18);
+    }
+    #arcgisMapViewNYC .nyc-book-slot:focus-visible {
+      outline: 2px solid rgba(102, 221, 255, 0.65);
+      outline-offset: 2px;
+    }
+
+    /* Hero map is decorative; ignore pointer so wheel scroll reaches the page */
+    .main-stage > .map-stack.map-stack--fullpage {
+      pointer-events: none;
+    }
+
+    /* Full viewport map stages — extend under fixed nav so translucency shows live map */
+    .map-stage-page {
+      flex: 0 0 auto;
+      width: 100vw;
+      max-width: 100vw;
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      height: 100vh;
+      height: 100dvh;
+      min-height: 100vh;
+      min-height: 100dvh;
+      position: relative;
+      scroll-margin-top: var(--nav-row-height);
+      border-top: 1px solid rgba(102, 221, 255, 0.18);
+      background: var(--page-bg);
+    }
+    .map-stage-page .map-stack {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      min-height: 100%;
+    }
+
+    #coverage-section {
+      scroll-margin-top: var(--nav-row-height);
+    }
+    .coverage-section {
+      flex: 0 0 auto;
+      width: 100%;
+      padding: 0;
+      background: linear-gradient(180deg, rgba(4, 14, 22, 0.98) 0%, var(--page-bg) 40%);
+      border-top: 0.33px solid rgba(102, 221, 255, 0.14);
+    }
+    /* Third map: title overlays tiles; no layout height above the map */
+    .coverage-map-fullbleed > .coverage-heading-wrap {
+      position: absolute;
+      top: calc(var(--nav-row-height) + 0.4rem);
+      left: 0;
+      right: 0;
+      z-index: 400;
+      padding: 0 clamp(1rem, 4vw, 2rem);
+      max-width: min(1200px, 100%);
+      margin: 0 auto;
+      pointer-events: none;
+    }
+    .coverage-map-fullbleed > .coverage-heading-wrap .coverage-heading {
+      pointer-events: auto;
+    }
+    .coverage-heading {
+      margin: 0;
+      font-family: "Roboto Mono", ui-monospace, "Cascadia Code", monospace;
+      font-size: clamp(0.85rem, 2vw, 1.04rem);
+      font-weight: 500;
+      letter-spacing: 0.03em;
+      color: rgba(198, 242, 255, 0.95);
+    }
+    .coverage-map-fullbleed {
+      position: relative;
+      width: 100vw;
+      max-width: 100vw;
+      margin-left: calc(50% - 50vw);
+      margin-right: calc(50% - 50vw);
+      height: 100vh;
+      height: 100dvh;
+      min-height: 100vh;
+      min-height: 100dvh;
+      overflow: hidden;
+      border-top: 0.33px solid rgba(102, 221, 255, 0.18);
+      border-bottom: 0.33px solid rgba(102, 221, 255, 0.14);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+      opacity: 1;
+      pointer-events: auto;
+    }
+    #arcgisMapViewCoverage {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+    }
+    .coverage-map-fullbleed .coverage-map-chip-overlay {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: clamp(1rem, 7vh, 4rem);
+      /* Inactive: below phase-1 rails; active: above — avoid visibility:hidden on parent (breaks child fades) */
+      z-index: 12;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: clamp(0.5rem, 2vw, 1.25rem);
+      padding: 0 max(0.65rem, env(safe-area-inset-left, 0px)) max(0.35rem, env(safe-area-inset-bottom, 0px))
+        max(0.65rem, env(safe-area-inset-right, 0px));
+      pointer-events: none;
+    }
+    .coverage-map-chip-overlay.is-visible {
+      z-index: 960;
+    }
+    .coverage-map-chip-overlay .banner-chip {
+      width: 100%;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(14px);
+      transition:
+        opacity 0.42s cubic-bezier(0.22, 1, 0.32, 1),
+        transform 0.42s cubic-bezier(0.22, 1, 0.32, 1),
+        visibility 0s linear 0.42s;
+      pointer-events: none;
+    }
+    .coverage-map-chip-overlay.is-visible .banner-chip {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+      pointer-events: auto;
+      transition-delay: 0s, 0s, 0s;
+      transition-duration: 0.42s, 0.42s, 0s;
+    }
+    .coverage-map-chip-overlay .scroll-float-chips__rail--left .banner-chip:nth-child(1) {
+      transition-delay: 0s;
+    }
+    .coverage-map-chip-overlay .scroll-float-chips__rail--left .banner-chip:nth-child(2) {
+      transition-delay: 0.06s;
+    }
+    .coverage-map-chip-overlay .scroll-float-chips__rail--right .banner-chip:nth-child(1) {
+      transition-delay: 0.03s;
+    }
+    .coverage-map-chip-overlay .scroll-float-chips__rail--right .banner-chip:nth-child(2) {
+      transition-delay: 0.09s;
+    }
+    .coverage-chips-wrap {
+      padding: clamp(1.25rem, 4vw, 2rem) clamp(1rem, 4vw, 2rem) clamp(2.5rem, 6vw, 3.5rem);
+      max-width: min(1200px, 100%);
+      margin: 0 auto;
+    }
+    .coverage-aside {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 0.75rem;
+      align-items: stretch;
+    }
+    .coverage-aside .banner-chip {
+      opacity: 0;
+      transform: translate3d(0, 28px, 0);
+      transition:
+        opacity 0.7s cubic-bezier(0.22, 1, 0.32, 1),
+        transform 0.7s cubic-bezier(0.22, 1, 0.32, 1);
+    }
+    .coverage-section.is-chips-visible .coverage-aside .banner-chip:nth-child(1) {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+      transition-delay: 0.06s;
+    }
+    .coverage-section.is-chips-visible .coverage-aside .banner-chip:nth-child(2) {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+      transition-delay: 0.18s;
+    }
+    .coverage-section.is-chips-visible .coverage-aside .banner-chip:nth-child(3) {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+      transition-delay: 0.3s;
+    }
+    .coverage-section.is-chips-visible .coverage-aside .banner-chip:nth-child(4) {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+      transition-delay: 0.42s;
+    }
+    .coverage-chip-code {
+      display: inline-block;
+      margin-right: 0.35rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: rgba(134, 234, 255, 0.98);
+    }
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .coverage-aside .banner-chip {
+        opacity: 1;
+        transform: none;
+        transition: none;
+      }
+      .scroll-float-chips .banner-chip {
+        transition: none;
+      }
+      .coverage-map-chip-overlay .banner-chip {
+        transition: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <nav class="site-nav" data-site-nav aria-label="Primary navigation">
+    <div class="nav-auth">
+      <span class="nav-auth-guest">
+        <a class="nav-link" href="/login.html">Login</a>
+        <span class="nav-sep" aria-hidden="true">|</span>
+        <a class="nav-link" href="/register.html">Register</a>
+      </span>
+      <span class="nav-auth-user" hidden>
+        <span class="nav-user-session">
+          <img class="nav-user-icon-img" src="/user-svgrepo-com.svg" alt="" width="18" height="18" />
+          <span class="nav-user-name" id="nav-user-display-name"></span>
+          <span class="nav-sep" aria-hidden="true">|</span>
+          <button type="button" class="nav-link nav-link-btn" id="nav-logout">Logout</button>
+        </span>
+      </span>
+    </div>
+    <ul class="nav-menu">
+      <li><a class="nav-link" href="/demo.html" aria-current="page">Home</a></li>
+      <li class="nav-sep" aria-hidden="true">|</li>
+      <li>
+        <a class="nav-link" href="/bookings.html">Services</a>
+      </li>
+      <li class="nav-sep" data-requires-auth-any hidden aria-hidden="true">|</li>
+      <li data-requires-auth-regular hidden>
+        <a class="nav-link" href="/bookings.html">My Bookings</a>
+      </li>
+      <li data-requires-admin hidden>
+        <a class="nav-link" href="/overview.html">All Bookings</a>
+      </li>
+      <li class="nav-sep" data-requires-admin hidden aria-hidden="true">|</li>
+      <li data-requires-admin hidden>
+        <a class="nav-link" href="/all-users.html">All users</a>
+      </li>
+      <li class="nav-sep" data-requires-admin hidden aria-hidden="true">|</li>
+      <li data-requires-admin hidden>
+        <a class="nav-link" href="/messages.html">Messages</a>
+      </li>
+      <li class="nav-sep" data-requires-admin hidden aria-hidden="true">|</li>
+      <li data-requires-admin hidden>
+        <a class="nav-link" href="/admin-settings.html">Settings</a>
+      </li>
+      <li class="nav-sep" aria-hidden="true">|</li>
+      <li><a class="nav-link" href="/about.html">About</a></li>
+      <li class="nav-sep" aria-hidden="true">|</li>
+      <li><a class="nav-link" href="/contact.html">Contact</a></li>
+    </ul>
+  </nav>
+  <aside class="scroll-float-chips scroll-float-chips--phase1" aria-label="Service highlights" aria-hidden="true">
+    <div class="scroll-float-chips__rail scroll-float-chips__rail--left">
+      <div class="banner-chip">Licensed &amp; insured teams—every visit backed by our satisfaction focus.</div>
+      <div class="banner-chip">Book recurring or one-time cleans—morning, evening, or weekend slots.</div>
+    </div>
+      <div class="scroll-float-chips__rail scroll-float-chips__rail--right">
+      <div class="banner-chip">Search for your address to see all the available slots.</div>
+    </div>
+  </aside>
+  <main class="site-main">
+  <div class="main-stage">
+    <div class="map-stack map-stack--fullpage">
+      <div id="arcgisMapView" class="arcgis-map-host"></div>
+    </div>
+    <div class="main-stage-front">
+  <section class="site-banner" aria-label="Brand banner">
+    <div class="banner-graphic">
+    <div class="logo-wrap">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1536 1024" preserveAspectRatio="xMidYMin meet">
+  <defs>
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1155aa"/>
+      <stop offset="50%" stop-color="#2299cc"/>
+      <stop offset="100%" stop-color="#66ddff"/>
+    </linearGradient>
+    <!-- Hull gradient unused while mass path hidden; kept for easy revert -->
+    <linearGradient id="roofGrad" gradientUnits="userSpaceOnUse" x1="120" y1="220" x2="1416" y2="860">
+      <stop offset="0%" stop-color="#3a6ab0"/>
+      <stop offset="35%" stop-color="#2f5a9a"/>
+      <stop offset="70%" stop-color="#264c84"/>
+      <stop offset="100%" stop-color="#1f3f6e"/>
+    </linearGradient>
+    <!-- Windows & roof: lighter opaque grey so shapes read on dark map/banner (hull hidden) -->
+    <linearGradient id="windowRoofGrad" gradientUnits="userSpaceOnUse" x1="180" y1="80" x2="1380" y2="980">
+      <stop offset="0%" stop-color="#e8ecf2" stop-opacity="1"/>
+      <stop offset="22%" stop-color="#cfd6e0" stop-opacity="1"/>
+      <stop offset="48%" stop-color="#aeb8c7" stop-opacity="1"/>
+      <stop offset="74%" stop-color="#8d97a8" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#6f7888" stop-opacity="1"/>
+    </linearGradient>
+    <filter id="glow" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <style type="text/css"><![CDATA[
+      /*
+       ~40% faster than prior step: all durations & delays × (1/1.4).
+       (Prior step was ~50% faster than original SMIL.)
+      */
+      #roof-outlines,
+      #dark,
+      #house-features {
+        opacity: 0;
+        transform: translate(0, -500px);
+        transform-box: view-box;
+        transform-origin: 50% 36%;
+        transition: opacity 381ms linear,
+          transform 476ms cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      #roof-outlines.logo-reveal-visible,
+      #dark.logo-reveal-visible,
+      #house-features.logo-reveal-visible {
+        opacity: 1;
+        transform: translate(0, 0);
+      }
+      #blue,
+      #logo-i-bar {
+        opacity: 0;
+        transform: translate(-500px, 0);
+        transform-box: view-box;
+        transform-origin: center center;
+        transition: opacity 476ms linear,
+          transform 571ms cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      #blue.logo-reveal-visible,
+      #logo-i-bar.logo-reveal-visible {
+        opacity: 1;
+        transform: translate(0, 0);
+      }
+      #white {
+        opacity: 0;
+        transform: scale(0.8);
+        transform-box: view-box;
+        transform-origin: center center;
+        transition: opacity 643ms cubic-bezier(0.55, 0, 1, 1),
+          transform 476ms cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      #white.logo-reveal-visible {
+        opacity: 1;
+        transform: scale(1);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #roof-outlines,
+        #dark,
+        #blue,
+        #white,
+        #house-features,
+        #logo-i-bar {
+          opacity: 1 !important;
+          transform: none !important;
+          transition: none !important;
+        }
+      }
+    ]]></style>
+  </defs>
+
+  <!-- Roof strokes paint first so they sit behind all animated logo layers. -->
+  <g id="roof-outlines">
+    <g transform="translate(14, 0)">
+      <g fill="none" stroke="#2f5a9a" stroke-width="14" stroke-linejoin="round" stroke-linecap="round">
+        <!-- Back house roof -->
+        <polyline points="340,415 459,310 520,415"/>
+        <!-- Front house roof -->
+        <polyline points="210,510 290,420 390,510"/>
+      </g>
+    </g>
+  </g>
+
+  <g transform="translate(0, 1024) scale(0.1, -0.1)">
+    <!-- DARK ELEMENTS (House) -->
+    <g id="dark">
+
+      <!-- Windows, doors, roof facets (paths following the hull in source artwork) -->
+      
+    </g>
+    
+    <!-- BLUE ELEMENTS (Bottle, Waves, MAIDS) -->
+    <g id="blue" filter="url(#glow)">
+      <g fill="url(#blueGrad)">
+        <path d="M3079 8005 c-34 -19 -59 -81 -59 -148 0 -92 122 -1033 184 -1418 8 -48 22 -103 31 -123 56 -118 178 -114 205 7 10 43 8 79 -9 212 -11 88 -52 417 -91 730 -39 314 -75 595 -81 625 -21 103 -104 156 -180 115z"/><path d="M4057 7789 c-23 -78 -76 -135 -147 -159 -43 -15 -51 -20 -35 -25 98 -32 144 -73 180 -161 14 -33 25 -49 25 -38 0 33 27 90 59 127 27 30 62 50 126 72 16 6 13 9 -22 20 -82 25 -135 83 -159 174 l-11 46 -16 -56z"/><path d="M5362 7464 c-16 -88 -50 -160 -97 -213 -43 -48 -155 -107 -223 -117 l-47 -7 62 -13 c80 -16 176 -67 214 -113 44 -53 78 -129 93 -207 l13 -69 7 61 c9 77 53 171 106 224 51 51 149 98 221 107 l54 6 -62 13 c-186 38 -293 154 -321 349 l-7 48 -13 -69z"/><path d="M3780 7251 c-6 -24 -18 -54 -26 -66 -16 -25 -83 -65 -110 -66 -11 0 2 -7 28 -15 50 -15 94 -59 104 -102 11 -52 17 -58 24 -26 16 71 83 132 146 135 10 0 -1 7 -26 14 -59 18 -100 62 -115 122 l-13 48 -12 -44z"/><path d="M12220 7129 c-88 -36 -184 -193 -392 -638 -175 -374 -328 -734 -328 -771 0 -17 -357 -372 -460 -457 -174 -144 -283 -202 -378 -203 -70 0 -106 20 -126 70 -74 185 115 602 388 857 137 128 232 148 266 57 23 -60 -7 -136 -82 -206 -28 -25 -47 -51 -44 -57 10 -16 83 -13 117 5 158 81 210 285 103 404 -97 107 -292 111 -499 9 -206 -100 -410 -316 -531 -558 -97 -198 -283 -444 -366 -487 -57 -30 -84 13 -68 107 18 111 61 197 173 346 76 102 86 137 48 177 -12 13 -39 28 -60 35 -146 43 -251 -30 -498 -347 -168 -215 -285 -335 -372 -379 -116 -60 -201 -36 -201 56 0 120 162 357 365 535 197 172 348 247 555 276 101 14 110 18 110 43 0 57 -84 135 -173 162 -113 33 -296 8 -445 -60 -191 -89 -430 -292 -565 -482 -114 -161 -198 -346 -217 -483 -24 -167 40 -278 181 -316 196 -52 425 40 629 252 44 46 86 95 92 109 19 43 26 28 12 -27 -30 -115 -9 -216 55 -270 99 -84 294 -16 473 165 69 69 168 203 168 225 0 6 4 13 9 16 4 3 6 -25 4 -62 -6 -80 13 -154 60 -233 94 -158 330 -196 561 -90 169 77 404 285 600 529 57 71 90 94 46 32 -52 -73 -99 -291 -87 -405 12 -113 68 -175 159 -175 70 0 113 21 136 67 22 43 142 420 142 446 0 9 3 17 8 16 4 0 41 -54 82 -120 142 -227 262 -356 400 -428 107 -56 184 -74 315 -75 116 -1 159 11 153 42 -2 9 -53 51 -113 92 -128 88 -292 246 -380 368 -80 110 -234 365 -226 374 3 3 72 36 153 72 207 92 383 182 451 229 72 50 100 95 101 158 1 40 -4 53 -29 78 -55 58 -156 65 -242 17 -24 -14 -121 -85 -216 -159 -170 -132 -336 -251 -342 -245 -6 6 104 237 190 398 48 91 144 264 213 385 197 346 210 379 177 448 -26 54 -77 81 -159 84 -39 2 -82 -2 -96 -8z"/><path d="M9070 7114 c-25 -2 -130 -8 -235 -14 -369 -21 -733 -58 -995 -101 -483 -80 -764 -217 -857 -416 -30 -66 -39 -147 -24 -210 14 -53 64 -138 87 -147 10 -4 50 29 122 102 261 265 501 370 1122 491 368 72 1150 205 1158 196 2 -2 -41 -26 -96 -54 -272 -137 -655 -411 -1037 -742 -106 -92 -195 -170 -786 -699 -206 -184 -507 -453 -669 -596 -500 -444 -621 -583 -607 -701 4 -37 12 -54 36 -75 39 -35 69 -36 221 -3 735 158 1294 253 1803 305 1047 106 2756 102 4067 -10 730 -63 1281 -153 1690 -277 113 -34 116 -34 148 -17 59 32 152 164 152 217 0 23 -7 31 -35 43 -151 63 -772 146 -1475 199 -1024 76 -2297 90 -3293 38 -422 -22 -694 -21 -1027 5 -608 48 -1003 53 -1349 17 -202 -21 -209 -20 -139 27 87 57 250 193 943 785 766 654 1040 858 1621 1207 232 139 297 194 310 261 10 54 -5 86 -51 112 -81 44 -169 55 -475 58 -157 1 -305 1 -330 -1z"/><path d="M2768 7094 c-58 -25 -71 -63 -58 -175 6 -50 13 -96 16 -100 3 -5 2 -9 -3 -9 -4 0 -24 30 -43 67 -44 85 -82 111 -136 93 -53 -18 -66 -57 -54 -156 6 -43 8 -79 7 -81 -2 -1 -19 20 -37 48 -53 83 -124 97 -166 34 -17 -26 -16 -42 12 -165 l5 -25 -21 27 c-49 63 -123 85 -160 48 -28 -28 -26 -117 5 -205 4 -12 -9 -3 -32 22 -70 75 -108 87 -155 45 -27 -23 -22 -65 14 -135 18 -34 35 -66 37 -70 2 -5 -25 14 -60 43 -56 45 -69 51 -104 48 -31 -2 -43 -9 -54 -30 -14 -24 -14 -32 1 -73 21 -57 86 -156 168 -260 91 -113 285 -330 314 -348 21 -14 23 -21 18 -62 -4 -38 1 -59 24 -108 16 -34 30 -64 31 -66 2 -3 20 15 40 40 125 149 348 315 617 460 65 35 120 69 123 76 6 14 -59 133 -87 158 -19 17 -19 18 0 43 26 33 26 71 -5 299 -45 329 -83 476 -131 508 -37 24 -83 27 -126 9z"/><path d="M13215 6949 c-28 -14 -59 -65 -99 -161 -39 -96 -102 -287 -111 -338 -8 -45 9 -90 34 -90 28 0 134 118 214 239 115 174 146 257 117 312 -23 41 -106 62 -155 38z"/><path d="M5966 6870 c-18 -99 -66 -162 -148 -191 l-61 -23 53 -15 c75 -20 125 -72 147 -152 l17 -60 11 45 c18 72 59 124 118 152 29 13 63 24 77 25 18 0 10 6 -27 18 -29 10 -68 30 -86 44 -39 30 -78 102 -87 162 l-6 40 -8 -45z"/><path d="M5670 6297 c-142 -32 -200 -135 -132 -235 71 -106 227 -165 432 -165 169 0 294 39 349 109 30 38 26 59 -20 109 -114 124 -453 222 -629 182z"/><path d="M13726 6300 c-106 -17 -209 -50 -311 -99 -232 -113 -369 -268 -370 -416 0 -140 82 -216 372 -346 228 -102 284 -151 269 -231 -22 -121 -177 -212 -356 -212 -102 1 -160 15 -220 56 -61 41 -84 74 -90 132 l-5 50 -37 -33 c-71 -62 -87 -166 -35 -234 59 -77 216 -128 397 -129 170 -1 284 34 408 126 164 122 237 319 168 459 -34 70 -93 123 -232 208 -209 127 -253 158 -269 189 -25 48 -11 85 54 151 157 157 401 185 401 47 0 -55 -33 -114 -106 -185 -35 -35 -64 -65 -64 -67 0 -12 94 20 148 50 129 73 221 195 229 308 4 52 2 66 -19 96 -47 71 -181 103 -332 80z"/><path d="M6626 6035 c-15 -66 -47 -114 -90 -135 -23 -11 -49 -20 -57 -20 -8 0 11 -11 41 -23 57 -23 100 -71 100 -111 0 -12 5 -28 10 -36 8 -12 10 -11 10 8 0 27 32 93 54 111 8 7 36 20 62 30 l46 18 -32 6 c-66 14 -111 63 -129 144 l-8 38 -7 -30z"/><path d="M1436 5852 c5 -5 65 -16 134 -25 69 -10 199 -29 289 -42 90 -14 166 -24 167 -22 6 6 -132 47 -211 62 -44 8 -143 20 -220 25 -173 12 -171 12 -159 2z"/><path d="M5782 5754 c-152 -27 -245 -76 -339 -176 -135 -144 -258 -410 -327 -708 -39 -167 -50 -256 -49 -400 1 -199 34 -295 128 -378 58 -51 119 -72 210 -72 60 0 82 5 134 31 165 82 231 258 350 933 23 126 43 231 45 233 5 5 22 -102 36 -217 10 -93 15 -326 6 -350 -3 -8 -12 -54 -21 -103 -21 -118 -67 -256 -110 -328 -19 -32 -31 -59 -27 -59 15 0 80 75 121 139 93 145 135 312 127 502 -6 149 -30 249 -87 366 l-41 85 16 96 c9 54 27 160 41 237 14 77 25 145 25 151 0 12 -96 35 -139 33 -14 -1 -59 -7 -99 -15z"/><path d="M2792 5712 c-24 -109 -76 -173 -163 -202 l-53 -18 45 -12 c95 -25 142 -73 169 -174 l17 -61 7 41 c17 97 94 180 185 199 l34 7 -52 18 c-89 30 -151 107 -170 213 l-7 42 -12 -53z"/><path d="M6260 5679 c0 -49 -38 -106 -85 -129 -23 -11 -48 -20 -56 -21 -8 0 7 -7 33 -15 50 -15 94 -59 104 -102 9 -40 16 -58 19 -47 2 6 6 22 9 37 9 42 63 96 107 110 l40 11 -37 13 c-61 21 -114 88 -114 145 0 10 -4 21 -10 24 -6 4 -10 -7 -10 -26z"/><path d="M2176 5512 c-109 -173 -153 -335 -143 -531 7 -141 24 -206 87 -336 134 -278 377 -479 810 -672 19 -9 21 -12 7 -12 -14 -1 -17 -7 -14 -30 3 -17 8 -34 11 -40 3 -5 0 -11 -6 -14 -9 -3 -6 -11 10 -24 12 -12 22 -32 22 -47 0 -14 5 -26 10 -26 6 0 10 -13 10 -29 0 -17 -4 -33 -10 -36 -5 -3 -10 -12 -9 -18 0 -9 2 -9 6 1 8 20 22 14 16 -8 -7 -25 10 -32 185 -70 75 -16 112 -27 82 -23 -30 4 -66 7 -80 7 -14 1 -27 4 -30 7 -3 3 -50 16 -105 29 -116 26 -355 101 -435 137 -30 13 -56 24 -58 23 -1 0 -15 6 -31 14 -16 9 -31 12 -35 9 -3 -4 -6 -1 -6 6 0 7 -4 9 -10 6 -5 -3 -10 -2 -10 3 0 5 -25 20 -55 32 -30 12 -55 26 -55 31 0 5 -6 9 -12 9 -22 0 -200 125 -270 190 -193 176 -302 391 -315 615 -9 150 8 226 78 365 32 63 48 103 36 88 -44 -55 -151 -292 -143 -315 3 -8 2 -12 -3 -9 -4 3 -18 -27 -29 -67 -167 -571 163 -1085 875 -1363 131 -52 407 -133 473 -141 25 -3 50 -9 57 -15 7 -5 16 -7 21 -4 5 3 35 -1 67 -10 32 -8 84 -16 115 -18 31 -1 61 -6 67 -9 25 -15 436 -33 688 -29 153 2 425 23 425 33 0 5 7 6 15 3 14 -6 258 23 285 33 8 4 19 5 24 4 12 -3 219 30 230 36 4 3 29 7 54 9 26 2 48 8 50 14 2 6 8 8 13 4 9 -5 166 23 183 34 5 3 24 6 43 8 18 2 39 6 45 10 7 4 25 9 42 11 16 2 34 7 40 11 6 5 24 9 40 10 16 1 35 7 42 13 7 6 18 8 23 5 5 -4 12 -2 16 4 4 6 11 8 16 4 5 -3 17 0 25 7 8 6 17 9 21 6 3 -4 11 -3 17 2 6 5 63 23 126 41 325 91 700 231 965 359 143 70 309 160 294 161 -3 0 -95 -23 -204 -51 -335 -85 -636 -149 -775 -164 -14 -1 -25 -4 -25 -5 0 -1 -11 -4 -25 -6 -29 -4 -78 -12 -117 -19 -16 -3 -53 -7 -83 -10 -30 -3 -62 -8 -70 -11 -8 -4 -37 -8 -64 -10 -27 -2 -55 -9 -62 -15 -7 -6 -17 -8 -22 -5 -5 3 -33 1 -63 -4 -30 -5 -81 -12 -114 -15 -33 -4 -64 -10 -71 -15 -6 -6 -13 -7 -16 -4 -3 3 -122 -11 -264 -30 -326 -44 -510 -66 -549 -65 -16 1 2 5 40 10 292 35 395 52 395 65 0 8 4 14 10 14 5 0 29 13 52 29 24 16 46 27 50 25 5 -3 8 6 8 20 0 21 5 26 28 27 61 4 -102 17 -217 18 -68 1 -122 3 -120 5 2 2 204 7 449 9 260 4 465 10 493 16 26 6 66 11 90 10 23 -1 62 2 87 5 25 3 69 8 99 10 29 3 54 6 56 8 2 2 -270 3 -603 3 -635 0 -712 3 -1117 50 -723 83 -1255 237 -1640 473 -49 30 -99 55 -110 54 -16 -1 -17 1 -5 8 8 5 12 11 10 13 -245 186 -374 361 -430 581 -34 133 -24 374 19 489 15 38 5 34 -23 -11z m2284 -1942 c-36 -5 -121 -10 -190 -13 l-125 -6 135 13 c74 7 160 13 190 13 l55 0 -65 -7z m-795 -16 c-47 -7 -113 -8 -108 -1 2 4 32 6 66 6 34 -1 53 -3 42 -5z m363 -11 c-53 -2 -143 -2 -200 0 -57 1 -13 3 97 3 110 0 156 -2 103 -3z"/><path d="M12664 3996 c-245 -47 -369 -154 -368 -316 0 -64 25 -119 76 -166 72 -69 176 -101 443 -139 282 -40 335 -58 335 -115 0 -134 -451 -132 -745 4 l-72 33 -33 -96 c-18 -53 -35 -101 -37 -107 -5 -15 103 -58 221 -88 265 -69 615 -58 780 26 112 57 172 145 170 253 -2 169 -135 259 -454 304 -302 43 -341 52 -371 82 -26 26 -24 51 5 78 76 72 375 66 596 -11 47 -16 93 -32 102 -35 13 -4 22 14 48 97 18 57 29 105 24 110 -17 15 -153 59 -236 75 -113 23 -390 29 -484 11z"/><path d="M7300 3495 l0 -505 135 0 135 0 2 330 3 331 175 -220 c96 -121 178 -220 182 -221 4 0 27 24 50 53 24 30 104 128 178 220 l135 165 3 -329 2 -329 134 0 133 0 6 496 c4 274 4 501 1 505 -3 5 -68 9 -144 9 l-139 0 -48 -58 c-26 -32 -106 -134 -177 -226 -71 -92 -130 -165 -131 -164 -2 2 -70 91 -152 199 -81 107 -158 207 -169 222 l-22 27 -146 0 -146 0 0 -505z"/><path d="M9190 3943 c-35 -66 -190 -379 -356 -720 l-113 -233 147 0 147 0 39 85 39 85 283 0 284 0 42 -85 42 -85 148 0 147 0 -105 218 c-58 119 -169 346 -246 505 l-142 287 -162 0 -162 0 -32 -57z m275 -360 c47 -98 88 -187 91 -199 5 -21 4 -21 -172 -22 -98 0 -181 1 -185 4 -6 3 171 393 179 394 1 0 40 -80 87 -177z"/>
+        <path fill-rule="evenodd" d="M10849 3983 c-3 -10 -3 -238 -1 -506 l4 -489 386 4 c358 4 393 6 465 26 257 71 387 233 387 483 0 196 -91 342 -265 425 -128 62 -168 66 -591 71 -363 4 -381 4 -385 -14z m719 -218 c83 -20 132 -46 172 -91 47 -54 63 -99 64 -179 1 -94 -22 -153 -83 -207 -82 -74 -114 -81 -368 -86 l-223 -4 0 291 0 291 188 0 c130 0 206 -5 250 -15z"/><path d="M6515 3588 c-119 -61 -480 -195 -736 -273 -444 -135 -839 -224 -1237 -277 -134 -18 -216 -22 -562 -23 -223 -2 -412 1 -421 5 -8 5 -55 11 -105 13 -49 3 -96 8 -104 11 -8 3 -42 8 -75 11 -59 5 -90 9 -150 20 -16 3 -45 7 -62 9 -102 13 -408 93 -569 150 -111 40 -105 33 49 -61 258 -155 545 -264 867 -327 311 -61 736 -75 1070 -35 545 64 1220 282 1710 553 118 66 367 220 390 242 22 22 1 16 -65 -18z m-2690 -605 c-69 -14 -66 -12 -52 -33 10 -17 9 -22 -1 -29 -8 -5 -12 -17 -10 -28 1 -11 -3 -27 -11 -36 -12 -15 -9 -19 20 -32 l34 -14 -38 -1 -37 0 6 73 c3 39 7 77 9 84 2 6 -1 14 -8 17 -7 2 15 4 48 4 33 0 51 -2 40 -5z"/>
+      </g>
+    </g>
+    
+    <!-- WHITE ELEMENTS (Zack's, Broom, Sparkles) -->
+    <g id="white">
+      <g fill="white">
+        <path d="M3079 8005 c-48 -26 -63 -76 -56 -189 7 -110 67 -598 123 -986 73 -511 75 -521 130 -570 19 -16 42 -31 52 -31 63 -4 97 24 112 95 11 45 1 135 -84 814 -53 419 -102 777 -110 795 -30 73 -105 106 -167 72z"/><path d="M4057 7792 c-22 -80 -82 -144 -154 -165 -38 -12 -44 -16 -28 -22 102 -35 152 -81 180 -166 l18 -53 12 39 c27 93 88 157 161 171 43 8 43 20 2 28 -77 15 -151 99 -166 187 l-7 44 -18 -63z"/><path d="M5362 7468 c-31 -180 -141 -297 -314 -332 l-63 -13 53 -6 c105 -12 210 -76 263 -159 33 -51 68 -159 70 -213 0 -16 7 2 14 42 33 182 138 293 309 325 l65 12 -58 12 c-190 39 -302 172 -323 384 -2 14 -9 -9 -16 -52z"/><path d="M12255 7141 c-99 -25 -175 -128 -333 -452 -172 -353 -345 -743 -398 -899 l-29 -85 -180 -181 c-334 -336 -518 -464 -663 -464 -185 0 -175 279 23 615 133 225 341 425 442 425 32 0 66 -30 78 -68 3 -12 -1 -47 -10 -78 -13 -45 -27 -67 -72 -109 -30 -29 -53 -58 -49 -63 24 -39 134 -4 198 62 48 50 71 99 76 166 14 182 -128 291 -338 259 -281 -42 -579 -293 -746 -629 -101 -202 -291 -453 -369 -486 -49 -20 -65 -4 -65 67 0 108 59 239 174 386 69 88 81 116 64 151 -22 44 -62 66 -132 70 -53 3 -73 0 -112 -19 -71 -35 -183 -146 -297 -294 -261 -337 -393 -454 -515 -455 -83 0 -113 67 -77 171 39 110 196 316 332 436 211 186 369 266 580 294 49 6 93 15 99 20 34 28 -44 132 -128 170 -46 21 -68 24 -173 24 -143 0 -219 -20 -361 -94 -126 -66 -232 -147 -354 -270 -206 -208 -347 -457 -380 -669 -31 -199 66 -320 266 -330 138 -7 266 36 404 138 63 47 197 179 233 230 l18 25 -6 -25 c-3 -14 -9 -60 -12 -102 -5 -70 -3 -82 21 -132 45 -92 122 -115 247 -76 142 44 317 198 422 373 l34 56 -5 -68 c-10 -149 61 -282 184 -342 58 -29 80 -34 158 -37 111 -5 187 12 301 68 156 76 370 263 549 480 102 123 104 125 67 59 -41 -73 -70 -191 -78 -309 -7 -115 6 -168 51 -217 28 -31 40 -37 88 -41 69 -5 122 11 147 46 10 15 42 101 71 192 28 91 58 185 66 209 8 25 14 53 14 63 0 34 15 17 80 -89 156 -257 308 -409 472 -474 157 -62 403 -65 403 -4 0 14 -26 38 -85 78 -238 162 -384 327 -578 655 l-61 103 57 25 c31 14 91 41 132 59 119 51 360 174 418 213 128 84 147 219 38 272 -101 49 -178 18 -396 -155 -136 -108 -360 -269 -365 -263 -12 14 220 463 417 807 185 324 201 367 159 435 -35 57 -143 95 -216 77z"/><path d="M8955 7110 c-1165 -70 -1685 -185 -1903 -424 -69 -75 -97 -145 -97 -241 0 -68 4 -89 28 -138 16 -32 40 -65 53 -73 23 -16 25 -15 131 93 292 295 525 385 1423 548 290 53 853 145 858 140 2 -2 -22 -14 -53 -29 -126 -57 -390 -225 -605 -384 -241 -179 -514 -410 -964 -815 -164 -149 -345 -310 -1061 -946 -298 -264 -432 -404 -484 -501 -29 -53 -33 -69 -28 -113 3 -41 10 -56 36 -79 40 -35 77 -36 226 -3 614 136 1260 247 1750 299 1084 116 2936 108 4275 -20 663 -63 1169 -150 1544 -265 118 -37 134 -33 200 45 88 103 109 174 59 200 -37 19 -226 60 -393 85 -782 119 -1890 185 -3115 184 -616 0 -884 -7 -1486 -39 -325 -17 -422 -14 -949 28 -363 29 -960 31 -1205 5 -215 -23 -209 -24 -139 26 98 69 258 201 709 587 132 113 259 221 281 240 773 651 1001 821 1544 1146 272 162 340 223 340 304 0 45 -15 67 -60 90 -84 43 -158 52 -475 55 -165 2 -363 -1 -440 -5z"/><path d="M2758 7090 c-51 -27 -62 -65 -48 -171 14 -118 13 -121 -22 -54 -53 105 -96 132 -158 100 -39 -20 -53 -57 -45 -115 3 -25 8 -63 11 -85 l6 -40 -37 53 c-45 66 -90 91 -133 73 -42 -18 -56 -56 -43 -122 5 -30 13 -62 16 -71 10 -26 1 -22 -37 16 -60 60 -129 61 -153 3 -13 -33 -7 -113 15 -174 9 -25 7 -24 -27 14 -69 75 -108 87 -155 45 -27 -23 -22 -65 17 -143 l36 -70 -57 46 c-69 56 -96 68 -129 55 -67 -25 -55 -94 42 -238 105 -155 373 -464 414 -477 14 -5 26 1 42 22 126 164 361 345 605 466 98 49 124 66 129 86 8 32 -12 226 -43 414 -45 273 -71 348 -129 373 -45 19 -72 17 -117 -6z"/><path d="M13208 6944 c-34 -18 -80 -112 -142 -285 -74 -209 -82 -299 -26 -299 48 0 239 250 316 415 25 53 30 104 14 136 -24 45 -109 62 -162 33z"/><path d="M5664 6297 c-136 -35 -189 -130 -130 -231 82 -141 377 -212 621 -150 101 26 185 87 185 135 0 49 -127 146 -253 194 -143 53 -327 76 -423 52z"/><path d="M13740 6304 c-155 -29 -253 -62 -368 -124 -188 -102 -310 -239 -328 -370 -18 -136 79 -241 324 -350 295 -130 343 -172 312 -272 -37 -125 -236 -214 -419 -188 -88 12 -146 39 -195 89 -31 32 -39 49 -44 92 l-7 53 -37 -33 c-71 -62 -87 -166 -35 -234 87 -114 395 -168 604 -105 103 31 180 76 260 154 128 125 170 282 110 407 -38 77 -101 130 -291 244 -229 138 -251 164 -202 247 49 83 149 152 267 182 108 28 179 -3 179 -78 0 -55 -32 -111 -106 -183 -35 -34 -64 -66 -64 -69 0 -14 66 7 133 42 90 47 176 132 217 215 28 58 32 74 28 127 -5 70 -28 101 -96 132 -43 19 -187 32 -242 22z"/><path d="M5760 5753 c-155 -26 -303 -130 -407 -286 -56 -85 -139 -267 -186 -407 -60 -183 -109 -453 -106 -590 l2 -55 8 70 c17 145 43 261 87 384 12 34 17 40 22 25 6 -15 8 -13 14 11 11 45 107 252 153 331 58 98 127 188 201 263 46 46 61 68 56 80 -12 28 -17 71 -7 71 19 0 51 -31 57 -55 7 -29 36 -34 57 -9 10 13 10 19 0 36 -10 17 -11 25 0 45 13 24 90 77 125 86 23 6 -41 6 -76 0z"/><path d="M5945 5185 c3 -27 12 -97 20 -155 8 -58 15 -168 15 -245 1 -150 2 -151 40 -33 4 14 13 35 18 45 13 22 19 9 25 -52 2 -22 4 -6 5 36 3 134 -50 339 -109 424 l-21 30 7 -50z"/><path d="M1742 4943 c-176 -389 -124 -778 145 -1088 455 -523 1457 -760 2638 -624 812 93 1673 329 2272 623 188 92 354 189 271 157 -23 -9 -315 -82 -483 -121 -489 -115 -1530 -273 -2240 -342 -173 -16 -688 -16 -830 1 -710 83 -1276 322 -1558 656 -186 221 -259 502 -193 745 9 30 14 55 12 57 -2 2 -17 -27 -34 -64z"/><path d="M2579 4456 c11 -13 11 -16 -2 -16 -9 0 -27 4 -41 10 -38 14 -32 -4 12 -38 297 -232 769 -411 1335 -507 632 -107 1465 -131 2097 -61 102 11 58 12 -380 8 -524 -5 -768 4 -1110 39 -838 85 -1382 240 -1829 521 -52 33 -89 53 -82 44z"/><path d="M2415 3254 c45 -35 199 -126 291 -172 359 -180 746 -274 1174 -286 158 -4 162 -4 47 3 -70 5 -130 11 -133 14 -3 3 1 20 10 39 23 48 36 128 22 130 -6 1 30 5 79 8 l90 6 -105 2 c-462 9 -1009 100 -1380 231 -63 22 -106 34 -95 25z"/>
+      </g>
+    </g>
+  </g>
+
+  <!-- I letter overlay - drawn on top to ensure visibility -->
+  <g transform="translate(0, 1024) scale(0.1, -0.1)" fill="url(#blueGrad)">
+    <g id="logo-i-bar">
+      <path d="M10240 4000 l280 0 0 -1000 -280 0z"/>
+    </g>
+  </g>
+
+  <!-- House features (windows): above roof strokes -->
+  <g id="house-features">
+    <!-- Back house: large 4-pane window (same lighter navy as roof) -->
+    <g fill="#2f5a9a">
+      <rect x="422" y="418" width="34" height="34" rx="2"/>
+      <rect x="462" y="418" width="34" height="34" rx="2"/>
+      <rect x="422" y="462" width="34" height="34" rx="2"/>
+      <rect x="462" y="462" width="34" height="34" rx="2"/>
+    </g>
+    <!-- Front house: small 4-pane window (same lighter navy as roof) -->
+    <g fill="#2f5a9a">
+      <rect x="326" y="545" width="26" height="24" rx="2"/>
+      <rect x="358" y="545" width="26" height="24" rx="2"/>
+      <rect x="326" y="575" width="26" height="24" rx="2"/>
+      <rect x="358" y="575" width="26" height="24" rx="2"/>
+    </g>
+  </g>
+</svg>
+<script>
+  (function () {
+    var wrap = document.querySelector(".logo-wrap");
+    var svg = wrap && wrap.querySelector("svg");
+    if (!svg) return;
+    function reveal(id, ms) {
+      window.setTimeout(function () {
+        var el = svg.getElementById(id);
+        if (el) el.classList.add("logo-reveal-visible");
+      }, ms);
+    }
+    var layers = ["roof-outlines", "dark", "house-features", "blue", "logo-i-bar", "white"];
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      layers.forEach(function (id) {
+        var el = svg.getElementById(id);
+        if (el) el.classList.add("logo-reveal-visible");
+      });
+      return;
+    }
+    window.requestAnimationFrame(function () {
+      window.requestAnimationFrame(function () {
+        reveal("roof-outlines", 238);
+        reveal("dark", 238);
+        reveal("house-features", 238);
+        reveal("blue", 571);
+        reveal("logo-i-bar", 571);
+        reveal("white", 951);
+      });
+    });
+  })();
+</script>
+
+    </div>
+    </div>
+  </section>
+      <div class="panels-float">
+        <div class="hero-intro-box" role="region" aria-label="About Zack&apos;s Maids">
+          <p class="hero-intro-box__text">
+            We&rsquo;re a brand new cleaning service born in Jersey City with one simple goal: make homes and workspaces feel fresh, stress-free, and genuinely cared for. We started this company because we believe great cleaning isn&rsquo;t just about spotless floors or shiny counters &mdash; it&rsquo;s about giving people more time, peace of mind, and comfort in the spaces that matter most.
+          </p>
+        </div>
+        <a class="map-book-cta" href="#nyc-explorer">
+          <span class="map-book-cta__label">Book now</span>
+          <svg
+            class="map-book-cta__arrow"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 512 512"
+            aria-hidden="true"
+            focusable="false">
+            <g opacity="0.7">
+              <path
+                fill="currentColor"
+                d="M0,256.006C0,397.402,114.606,512.004,255.996,512C397.394,512.004,512,397.402,512,256.006C512.009,114.61,397.394,0,255.996,0C114.606,0,0,114.614,0,256.006z" />
+              <path
+                fill="currentColor"
+                d="M512,256.005c0.002-30.105-5.235-58.974-14.782-85.81c-0.268-0.268-0.607-0.387-0.901-0.599c-0.213-0.294-0.332-0.633-0.596-0.898c-0.265-0.266-75.945-75.945-76.209-76.21c-2.694-2.694-7.059-2.694-9.754,0L256,246.246L102.241,92.489c-2.694-2.694-7.058-2.694-9.754,0c-2.694,2.694-2.694,7.059,0,9.754l233.077,233.075L256,404.881L102.241,251.123c-2.694-2.694-7.058-2.694-9.754,0c-2.694,2.694-2.694,7.059,0,9.754L332.11,500.499C436.334,468.096,512,370.896,512,256.005z" />
+            </g>
+            <g fill="#F4F6F9">
+              <path
+                d="M251.123,260.877c1.347,1.347,3.111,2.02,4.877,2.02c1.765,0,3.53-0.673,4.877-2.02l158.635-158.635c2.694-2.694,2.694-7.059,0-9.753c-2.694-2.694-7.059-2.694-9.753,0L256,246.247L102.242,92.489c-2.694-2.694-7.059-2.694-9.753,0c-2.694,2.694-2.694,7.059,0,9.753L251.123,260.877z" />
+              <path
+                d="M409.758,251.123L256,404.882L102.242,251.123c-2.694-2.694-7.059-2.694-9.753,0c-2.694,2.694-2.694,7.059,0,9.753L251.124,419.51c1.347,1.347,3.111,2.02,4.877,2.02c1.765,0,3.53-0.673,4.877-2.02l158.635-158.635c2.694-2.694,2.694-7.059,0-9.753C416.817,248.429,412.452,248.429,409.758,251.123z" />
+            </g>
+          </svg>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <section
+    class="map-stage-page"
+    id="nyc-explorer"
+    aria-labelledby="nyc-map-heading">
+    <h2 id="nyc-map-heading" class="visually-hidden">
+      NYC metro street map — search addresses (Jersey City centered)
+    </h2>
+    <div class="map-stack map-stack--fullpage">
+      <div id="arcgisMapViewNYC" class="arcgis-map-host"></div>
+    </div>
+  </section>
+
+  <section class="coverage-section" id="coverage-section" aria-labelledby="coverage-heading">
+    <div class="coverage-map-fullbleed">
+      <div class="coverage-heading-wrap">
+        <h2 id="coverage-heading" class="coverage-heading">
+          Metro ZIP coverage (Jersey City – NYC – Long Island)
+        </h2>
+      </div>
+      <div id="arcgisMapViewCoverage" class="arcgis-map-host arcgis-map-host--coverage" role="presentation"></div>
+      <div class="coverage-map-chip-overlay" role="region" aria-label="Metro ZIP zone highlights" aria-hidden="true">
+        <div class="scroll-float-chips__rail scroll-float-chips__rail--left">
+          <div class="banner-chip"><span class="coverage-chip-code">073–076</span>Hudson &amp; Bergen core—dense scheduling blocks along the Hudson corridor.</div>
+          <div class="banner-chip"><span class="coverage-chip-code">081–085</span>South &amp; Delaware Valley fringe—route bundles toward Philly spillover.</div>
+        </div>
+        <div class="scroll-float-chips__rail scroll-float-chips__rail--right">
+          <div class="banner-chip"><span class="coverage-chip-code">077–080</span>Central &amp; shore-adjacent suburbs—rolling weekday capacity.</div>
+          <div class="banner-chip"><span class="coverage-chip-code">086–089</span>Capital corridor &amp; Shore points—weekend-heavy vacation-property cleans.</div>
+        </div>
+      </div>
+    </div>
+    <div class="coverage-chips-wrap" id="coverage-chips-anchor">
+      <aside class="coverage-aside" aria-label="Metro area service zones">
+        <div class="banner-chip"><span class="coverage-chip-code">073–076</span>Hudson &amp; Bergen core—dense scheduling blocks along the Hudson corridor.</div>
+        <div class="banner-chip"><span class="coverage-chip-code">077–080</span>Central &amp; shore-adjacent suburbs—rolling weekday capacity.</div>
+        <div class="banner-chip"><span class="coverage-chip-code">081–085</span>South &amp; Delaware Valley fringe—route bundles toward Philly spillover.</div>
+        <div class="banner-chip"><span class="coverage-chip-code">086–089</span>Capital corridor &amp; Shore points—weekend-heavy vacation-property cleans.</div>
+      </aside>
+    </div>
+  </section>
+
+  </main>
+
+  <!-- Maps use Leaflet + Esri raster tiles so the page still runs when extensions inject SES lockdown (ArcGIS JS API often does not). -->
+  <!-- Static + API: use http://localhost:3000/demo.html (npm start) so session cookies work. -->
+  <script src="/auth-client.js" defer></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-control-geocoder@2.4.0/dist/Control.Geocoder.js"></script>
+  <script>
+    window.addEventListener("load", function () {
+      (function syncScrollFloatChips() {
+        var zipPhase = false;
+        var zipPhaseSeeded = false;
+
+        function tick() {
+          var docEl = document.documentElement;
+          var y = window.scrollY || docEl.scrollTop || 0;
+          var vh = window.innerHeight;
+          var topPx = 52;
+
+          var nycEl = document.getElementById("nyc-explorer");
+          /* Bottom edge of second section (#nyc-explorer), viewport Y */
+          var nycBottomVp = Infinity;
+          if (nycEl) {
+            nycBottomVp = nycEl.getBoundingClientRect().bottom;
+          }
+
+          /*
+           * ZIP/coverage cyan chips: after the NYC section bottom clears the viewport bottom by a bit,
+           * so they don’t pop in the instant the second map hits the fold.
+           */
+          var coverageChipDeferPx = Math.round(Math.min(180, Math.max(72, vh * 0.1)));
+          var lineVp = vh - coverageChipDeferPx;
+          var hy = Math.round(Math.min(90, Math.max(36, vh * 0.05)));
+
+          var rawZip = Boolean(nycEl) && nycBottomVp <= lineVp;
+
+          if (!zipPhaseSeeded) {
+            zipPhase = rawZip;
+            zipPhaseSeeded = true;
+          } else if (!nycEl) {
+            zipPhase = false;
+          } else if (nycBottomVp <= lineVp) {
+            zipPhase = true;
+          } else if (nycBottomVp > lineVp + hy) {
+            zipPhase = false;
+          }
+
+          var phase2Zip = zipPhase;
+          var phase1 = y > topPx && !phase2Zip;
+
+          docEl.classList.toggle("scroll-chips-phase1", phase1);
+
+          var aside1 = document.querySelector(".scroll-float-chips--phase1");
+          if (aside1) {
+            aside1.setAttribute("aria-hidden", phase1 ? "false" : "true");
+          }
+
+          var covOverlay = document.querySelector(".coverage-map-chip-overlay");
+          if (covOverlay) {
+            covOverlay.classList.toggle("is-visible", phase2Zip);
+            covOverlay.setAttribute("aria-hidden", phase2Zip ? "false" : "true");
+          }
+        }
+
+        window.addEventListener("scroll", tick, { passive: true });
+        window.addEventListener("resize", function () {
+          zipPhaseSeeded = false;
+          tick();
+        });
+        tick();
+      })();
+
+      if (typeof L === "undefined") {
+        console.error("Leaflet failed to load.");
+        return;
+      }
+
+      function buildNjZip3BandsGeoJSON() {
+        var njW = -75.58;
+        var njE = -73.88;
+        var njN = 41.37;
+        var njS = 38.91;
+        var bands = 20;
+        var dh = (njN - njS) / bands;
+        var feats = [];
+        for (var i = 0; i < bands; i++) {
+          var latBottom = njN - (i + 1) * dh;
+          var latTop = njN - i * dh;
+          var n = 89 - i;
+          var code = n < 100 ? "0" + n : String(n);
+          feats.push({
+            type: "Feature",
+            properties: { ZIP3: code },
+            geometry: {
+              type: "Polygon",
+              coordinates: [
+                [
+                  [njW, latBottom],
+                  [njE, latBottom],
+                  [njE, latTop],
+                  [njW, latTop],
+                  [njW, latBottom],
+                ],
+              ],
+            },
+          });
+        }
+        return { type: "FeatureCollection", features: feats };
+      }
+
+      function waitForHeight(el, minPx, maxAttempts, cb) {
+        function tick(attempt) {
+          if (el && attempt === 48 && el.getBoundingClientRect().height < minPx) {
+            el.style.minHeight = "min(85vh, 720px)";
+          }
+          var h = el ? el.getBoundingClientRect().height : 0;
+          if (h >= minPx || attempt >= maxAttempts) {
+            cb(h);
+          } else {
+            requestAnimationFrame(function () {
+              tick(attempt + 1);
+            });
+          }
+        }
+        tick(0);
+      }
+
+      function esriTileServicesBase() {
+        /* Always use Esri directly — /esri-tiles/ nginx proxy must not fall through to SPA index.html */
+        return "https://services.arcgisonline.com/ArcGIS/rest/services/";
+      }
+
+      var INTERACTIVE_MAP_MAX_ZOOM = 14;
+      var HERO_MAP_MAX_ZOOM = 16;
+
+      function addEsriDarkBasemap(map, opts) {
+        opts = opts || {};
+        var maxZoom = opts.maxZoom != null ? opts.maxZoom : HERO_MAP_MAX_ZOOM;
+        var tileOpts = {
+          maxZoom: maxZoom,
+          detectRetina: false,
+          keepBuffer: 2,
+          updateWhenIdle: false,
+          updateWhenZooming: false,
+        };
+        if (opts.tileLayerOptions) {
+          for (var tk in opts.tileLayerOptions) {
+            tileOpts[tk] = opts.tileLayerOptions[tk];
+          }
+        }
+        var esriBase = esriTileServicesBase();
+        var esriAttr =
+          '&copy; <a href="https://www.esri.com/">Esri</a> &mdash; Esri, HERE, Garmin, FAO, NOAA, USGS';
+        L.tileLayer(
+          esriBase + "Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+          L.extend({ attribution: esriAttr }, tileOpts),
+        ).addTo(map);
+        if (opts.transport !== false) {
+          L.tileLayer(
+            esriBase + "Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}",
+            L.extend({ maxZoom: maxZoom, opacity: 0.62, attribution: "" }, tileOpts),
+          ).addTo(map);
+        }
+        L.tileLayer(
+          esriBase + "Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}",
+          L.extend({ attribution: "" }, tileOpts),
+        ).addTo(map);
+      }
+
+      function attachMapInteractionPerf(map) {
+        var root = map.getContainer();
+        if (!root || root.getAttribute("data-perf-wired") === "1") {
+          return;
+        }
+        root.setAttribute("data-perf-wired", "1");
+        function onStart() {
+          root.classList.add("map-interacting");
+        }
+        function onEnd() {
+          root.classList.remove("map-interacting");
+        }
+        map.on("zoomstart movestart", onStart);
+        map.on("zoomend moveend", onEnd);
+      }
+
+      var INTERACTIVE_MAP_OPTS = {
+        scrollWheelZoom: false,
+        zoomAnimation: false,
+        fadeAnimation: false,
+        markerZoomAnimation: false,
+        maxZoom: INTERACTIVE_MAP_MAX_ZOOM,
+      };
+
+      function mapContainerVisible(container) {
+        if (!container) {
+          return false;
+        }
+        var rect = container.getBoundingClientRect();
+        var vh = window.innerHeight || document.documentElement.clientHeight || 0;
+        return rect.bottom > 0 && rect.top < vh;
+      }
+
+      function invalidateMap(map) {
+        if (!map) {
+          return;
+        }
+        try {
+          map.invalidateSize({ animate: false });
+        } catch (e) {
+          /* ignore */
+        }
+      }
+
+      function elementNearViewport(el, marginPx) {
+        if (!el) {
+          return false;
+        }
+        var margin = marginPx != null ? marginPx : 240;
+        var rect = el.getBoundingClientRect();
+        var vh = window.innerHeight || document.documentElement.clientHeight || 0;
+        return rect.bottom >= -margin && rect.top <= vh + margin;
+      }
+
+      function lazyBootWhenVisible(targetEl, bootFn, opts) {
+        opts = opts || {};
+        if (!targetEl || typeof bootFn !== "function") {
+          return;
+        }
+        if (targetEl.getAttribute("data-map-lazy-armed") === "1") {
+          return;
+        }
+        targetEl.setAttribute("data-map-lazy-armed", "1");
+
+        var marginPx = 240;
+        if (opts.rootMargin) {
+          var m = String(opts.rootMargin).match(/^(-?\d+)px/);
+          if (m) {
+            marginPx = Math.abs(parseInt(m[1], 10)) || marginPx;
+          }
+        }
+
+        function runBoot() {
+          bootFn();
+        }
+
+        if (elementNearViewport(targetEl, marginPx)) {
+          runBoot();
+          return;
+        }
+
+        if (!window.IntersectionObserver) {
+          runBoot();
+          return;
+        }
+
+        var booted = false;
+        function triggerBoot() {
+          if (booted) {
+            return;
+          }
+          booted = true;
+          window.removeEventListener("scroll", onScroll, false);
+          try {
+            io.disconnect();
+          } catch (_io) {}
+          runBoot();
+        }
+
+        var io = new IntersectionObserver(
+          function (entries) {
+            for (var i = 0; i < entries.length; i++) {
+              if (entries[i].isIntersecting) {
+                triggerBoot();
+                return;
+              }
+            }
+          },
+          {
+            root: null,
+            rootMargin: opts.rootMargin || "240px 0px",
+            threshold: 0.01,
+          },
+        );
+
+        function onScroll() {
+          if (elementNearViewport(targetEl, marginPx)) {
+            triggerBoot();
+          }
+        }
+
+        io.observe(targetEl);
+        window.addEventListener("scroll", onScroll, { passive: true });
+      }
+
+      /* Leaflet paints tiles inside the container; sibling overlays stay underneath — inject cyan above tiles. */
+      function attachRoadBluewash(map) {
+        var c = map.getContainer();
+        if (!c || c.querySelector(".map-road-bluewash")) {
+          return;
+        }
+        var el = document.createElement("div");
+        el.className = "map-road-bluewash";
+        el.setAttribute("aria-hidden", "true");
+        var ctrl = c.querySelector(".leaflet-control-container");
+        if (ctrl) {
+          c.insertBefore(el, ctrl);
+        } else {
+          c.appendChild(el);
+        }
+      }
+
+      function zipStyleFromFiveDigit(zipCodeStr) {
+        var zip = String(zipCodeStr || "")
+          .replace(/\D/g, "")
+          .slice(0, 5);
+        var zip3 = parseInt(zip.slice(0, 3), 10);
+        if (isNaN(zip3)) {
+          zip3 = 90;
+        }
+        /* Spread hue across NJ ~070–089 and NYC/LI ~100–119 */
+        var t = (zip3 - 70) / 49;
+        t = Math.max(0, Math.min(1, t));
+        var rr = Math.round(35 + 130 * (0.55 + 0.45 * Math.sin(t * 4.1)));
+        var gg = Math.round(110 + 95 * (0.45 + 0.55 * Math.cos(t * 3.3)));
+        var bb = Math.round(175 + 70 * Math.sin(t * 2.8 + 1));
+        return {
+          fillColor: "rgb(" + rr + "," + gg + "," + bb + ")",
+          fillOpacity: 0.36,
+          color: "rgba(200,248,255,0.72)",
+          weight: 1.25,
+        };
+      }
+
+      var maps = [];
+
+      function invalidateAllMaps() {
+        maps.forEach(function (m) {
+          invalidateMap(m);
+        });
+      }
+
+      function invalidateVisibleMaps() {
+        maps.forEach(function (m) {
+          var c = m.getContainer();
+          if (!mapContainerVisible(c)) {
+            return;
+          }
+          invalidateMap(m);
+        });
+      }
+
+      waitForHeight(document.getElementById("arcgisMapView"), 64, 140, function (heroH) {
+        var heroContainer = document.getElementById("arcgisMapView");
+        var nycContainer = document.getElementById("arcgisMapViewNYC");
+        var covSection = document.getElementById("coverage-section");
+        var covContainer = document.getElementById("arcgisMapViewCoverage");
+
+        if (!heroContainer) {
+          return;
+        }
+        if (heroH < 64) {
+          heroContainer.style.minHeight = "min(85vh, 720px)";
+        }
+
+        try {
+          var heroMap = L.map(heroContainer, {
+            zoomControl: false,
+            scrollWheelZoom: false,
+            dragging: false,
+            doubleClickZoom: false,
+            boxZoom: false,
+            keyboard: false,
+            touchZoom: false,
+          }).setView([40.728, -74.077], 10);
+          addEsriDarkBasemap(heroMap, { maxZoom: HERO_MAP_MAX_ZOOM });
+          attachRoadBluewash(heroMap);
+          maps.push(heroMap);
+          invalidateMap(heroMap);
+          window.setTimeout(function () {
+            invalidateMap(heroMap);
+          }, 400);
+        } catch (heroErr) {
+          console.error("Hero map failed:", heroErr);
+        }
+
+        function bootNycMap() {
+          if (!nycContainer || nycContainer.getAttribute("data-map-booted") === "1") {
+            return;
+          }
+          nycContainer.setAttribute("data-map-booted", "1");
+          waitForHeight(nycContainer, 40, 140, function () {
+            var nycMap;
+            try {
+              nycMap = L.map(nycContainer, INTERACTIVE_MAP_OPTS).setView([40.728, -74.077], 11);
+              addEsriDarkBasemap(nycMap, {
+                transport: false,
+                maxZoom: INTERACTIVE_MAP_MAX_ZOOM,
+              });
+              attachRoadBluewash(nycMap);
+              attachMapInteractionPerf(nycMap);
+              maps.push(nycMap);
+
+              if (L.Control && typeof L.Control.geocoder === "function") {
+                /* NJ + NYC / Long Island — matches page coverage intent (wider than 22 mi NJ disc + NY envelope) */
+                var metroBounds = L.latLngBounds(L.latLng(40.42, -75.08), L.latLng(41.34, -71.88));
+                /* Public Nominatim — low volume only; optional window.ZACKS_NOMINATIM_EMAIL identifies the app per OSM policy */
+                var nominatimBase = "https://nominatim.openstreetmap.org";
+
+                function nominatimExtraQuery() {
+                  if (typeof window === "undefined" || !window.ZACKS_NOMINATIM_EMAIL) {
+                    return "";
+                  }
+                  return "&email=" + encodeURIComponent(String(window.ZACKS_NOMINATIM_EMAIL));
+                }
+
+                function nominatimViewboxQuery() {
+                  var sw = metroBounds.getSouthWest();
+                  var ne = metroBounds.getNorthEast();
+                  return (
+                    "&viewbox=" +
+                    encodeURIComponent([sw.lng, ne.lat, ne.lng, sw.lat].join(",")) +
+                    "&bounded=1"
+                  );
+                }
+
+                function normalizeMetroQuery(raw) {
+                  var q = String(raw || "")
+                    .trim()
+                    .replace(/\s+/g, " ")
+                    /* Case-normalize for consistent matching (US addresses) */
+                    .toLowerCase();
+                  if (!q) {
+                    return q;
+                  }
+                  var t = q;
+                  t = t.replace(/\bblvd\.?\b/g, "boulevard");
+                  t = t.replace(/\bave\.?\b/g, "avenue");
+                  t = t.replace(/\bst\.?\b/g, "street");
+                  t = t.replace(/\brd\.?\b/g, "road");
+                  t = t.replace(/\bdr\.?\b/g, "drive");
+                  t = t.replace(/\bct\.?\b/g, "court");
+                  t = t.replace(/\bln\.?\b/g, "lane");
+                  t = t.replace(/\bpl\.?\b/g, "place");
+                  t = t.replace(/\bcir\.?\b/g, "circle");
+                  t = t.replace(/\btrl\.?\b/g, "trail");
+                  t = t.replace(/\bhwy\.?\b/g, "highway");
+                  t = t.replace(/\bexpy\.?\b/g, "expressway");
+                  t = t.replace(/\bpkwy\.?\b/g, "parkway");
+                  return t;
+                }
+
+                function filterNominatimHits(hits) {
+                  return (hits || []).filter(function (h) {
+                    if (!h || h.lat == null || h.lon == null) {
+                      return false;
+                    }
+                    var ll = L.latLng(parseFloat(h.lat), parseFloat(h.lon));
+                    if (!metroBounds.contains(ll)) {
+                      return false;
+                    }
+                    var cc = (h.address && h.address.country_code) || "";
+                    if (cc && String(cc).toLowerCase() !== "us") {
+                      return false;
+                    }
+                    return true;
+                  });
+                }
+
+                /* Map Nominatim metadata to the same Addr_type patterns used by pin / zoom logic */
+                function nominatimAttrsFromHit(hit) {
+                  var a = {};
+                  var typ = String(hit.type || "").toLowerCase();
+                  var cls = String(hit.class || "").toLowerCase();
+                  var addr = hit.address || {};
+                  var hasHN = !!addr.house_number;
+                  var hasRoad = !!(
+                    addr.road ||
+                    addr.pedestrian ||
+                    addr.path ||
+                    addr.footway ||
+                    addr.street ||
+                    addr.residential
+                  );
+                  if (typ === "postcode" || cls === "postcode" || typ === "postal_code") {
+                    a.Addr_type = "Postal";
+                    return a;
+                  }
+                  if (addr.postcode && !hasRoad && !hasHN) {
+                    var keys = Object.keys(addr).filter(function (k) {
+                      return addr[k];
+                    });
+                    if (keys.length <= 2) {
+                      a.Addr_type = "Postal";
+                      return a;
+                    }
+                  }
+                  if (hasHN && hasRoad) {
+                    a.Addr_type = "StreetAddress";
+                    a.AddNum = String(addr.house_number);
+                    return a;
+                  }
+                  if (typ === "house" || typ === "building" || cls === "building") {
+                    a.Addr_type = "StreetAddress";
+                    if (addr.house_number) {
+                      a.AddNum = String(addr.house_number);
+                    }
+                    return a;
+                  }
+                  if (hasRoad) {
+                    a.Addr_type = "StreetAddress";
+                    if (addr.house_number) {
+                      a.AddNum = String(addr.house_number);
+                    }
+                    return a;
+                  }
+                  a.Addr_type = typ || cls || "place";
+                  return a;
+                }
+
+                function nominatimHitToGeocodeResult(hit) {
+                  var lat = parseFloat(hit.lat);
+                  var lon = parseFloat(hit.lon);
+                  var center = L.latLng(lat, lon);
+                  var bbox = hit.boundingbox;
+                  var latLngBounds;
+                  if (bbox && bbox.length >= 4) {
+                    /* [south, north, west, east] */
+                    latLngBounds = L.latLngBounds(
+                      L.latLng(parseFloat(bbox[0]), parseFloat(bbox[2])),
+                      L.latLng(parseFloat(bbox[1]), parseFloat(bbox[3])),
+                    );
+                  } else {
+                    latLngBounds = L.latLngBounds(center, center);
+                  }
+                  return {
+                    name: hit.display_name || hit.name || "",
+                    bbox: latLngBounds,
+                    center: center,
+                    properties: nominatimAttrsFromHit(hit),
+                  };
+                }
+
+                function maxLocationsForQuery(qn) {
+                  var d = qn.replace(/\s/g, "");
+                  if (/^\d{5}(-\d{4})?$/.test(d)) {
+                    return 50;
+                  }
+                  if (/^\d{2,5}$/.test(d)) {
+                    return 40;
+                  }
+                  return 18;
+                }
+
+                function nycMetroNominatimSearch(singleLine, cb, context) {
+                  var qn = normalizeMetroQuery(singleLine);
+                  if (!qn) {
+                    cb.call(context, []);
+                    return;
+                  }
+                  var lim = maxLocationsForQuery(qn);
+                  var url =
+                    nominatimBase +
+                    "/search?format=jsonv2&addressdetails=1&q=" +
+                    encodeURIComponent(qn) +
+                    "&limit=" +
+                    lim +
+                    "&countrycodes=us" +
+                    nominatimViewboxQuery() +
+                    nominatimExtraQuery();
+                  fetch(url, { headers: { "Accept-Language": "en-US,en;q=0.9" } })
+                    .then(function (r) {
+                      return r.json();
+                    })
+                    .then(function (hits) {
+                      if (!Array.isArray(hits)) {
+                        cb.call(context, []);
+                        return;
+                      }
+                      var filtered = filterNominatimHits(hits);
+                      cb.call(context, filtered.map(nominatimHitToGeocodeResult));
+                    })
+                    .catch(function () {
+                      cb.call(context, []);
+                    });
+                }
+
+                function nycMetroNominatimReverse(location, scale, cb, context) {
+                  var lat = location.lat;
+                  var lng = location.lng;
+                  var url =
+                    nominatimBase +
+                    "/reverse?format=jsonv2&addressdetails=1&lat=" +
+                    encodeURIComponent(lat) +
+                    "&lon=" +
+                    encodeURIComponent(lng) +
+                    nominatimExtraQuery();
+                  fetch(url, { headers: { "Accept-Language": "en-US,en;q=0.9" } })
+                    .then(function (r) {
+                      return r.json();
+                    })
+                    .then(function (data) {
+                      if (!data || data.error) {
+                        cb.call(context, []);
+                        return;
+                      }
+                      var ll = L.latLng(parseFloat(data.lat), parseFloat(data.lon));
+                      if (!metroBounds.contains(ll)) {
+                        cb.call(context, []);
+                        return;
+                      }
+                      cb.call(context, [nominatimHitToGeocodeResult(data)]);
+                    })
+                    .catch(function () {
+                      cb.call(context, []);
+                    });
+                }
+
+                var nycMetroGeocoder = {
+                  geocode: function (query, cb, context) {
+                    nycMetroNominatimSearch(query, cb, context);
+                  },
+                  suggest: function (query, cb, context) {
+                    nycMetroNominatimSearch(query, cb, context);
+                  },
+                  reverse: function (location, scale, cb, context) {
+                    nycMetroNominatimReverse(location, scale, cb, context);
+                  },
+                };
+
+                var nycGeocodeMarkers = L.layerGroup().addTo(nycMap);
+                var nycBookSlotLatLng = null;
+                var nycBookSlotAddress = "";
+                var nycBookSlotWrap = document.createElement("div");
+                nycBookSlotWrap.className = "nyc-book-slot-wrap";
+                nycBookSlotWrap.setAttribute("aria-hidden", "true");
+                var nycBookSlotBtn = document.createElement("button");
+                nycBookSlotBtn.type = "button";
+                nycBookSlotBtn.className = "nyc-book-slot";
+                nycBookSlotBtn.textContent = "Book slot";
+                nycBookSlotBtn.setAttribute("aria-label", "Book a slot for this address");
+                function navigateToBookingsWithAddress(addr) {
+                  var cleaned = String(addr || "").trim();
+                  var maxQuery = 1600;
+                  var returningToBooking = false;
+                  try {
+                    returningToBooking = sessionStorage.getItem("zacksBookingReturnFromMap") === "1";
+                  } catch (returnFlagErr) {
+                    returningToBooking = false;
+                  }
+                  if (returningToBooking) {
+                    if (cleaned.length > maxQuery) {
+                      try {
+                        sessionStorage.setItem("zacksBookingAddress", cleaned);
+                      } catch (storageErr) {
+                        /* ignore */
+                      }
+                      window.location.href = "/bookings.html?from=map";
+                      return;
+                    }
+                    var returnQs = "from=map";
+                    if (cleaned) {
+                      returnQs += "&address=" + encodeURIComponent(cleaned);
+                    }
+                    window.location.href = "/bookings.html?" + returnQs;
+                    return;
+                  }
+                  if (cleaned.length > maxQuery) {
+                    try {
+                      sessionStorage.setItem("zacksBookingAddress", cleaned);
+                    } catch (storageErr2) {
+                      /* ignore */
+                    }
+                    window.location.href = "/bookings.html?from=map";
+                    return;
+                  }
+                  var q = cleaned ? "?address=" + encodeURIComponent(cleaned) : "";
+                  window.location.href = "/bookings.html" + q;
+                }
+
+                nycBookSlotBtn.addEventListener("click", function () {
+                  navigateToBookingsWithAddress(nycBookSlotAddress);
+                });
+                nycBookSlotWrap.appendChild(nycBookSlotBtn);
+                nycMap.getContainer().appendChild(nycBookSlotWrap);
+
+                function positionNycBookSlot(latLng) {
+                  if (!latLng || !nycMap) {
+                    return;
+                  }
+                  var p = nycMap.latLngToContainerPoint(latLng);
+                  var gap = 12;
+                  nycBookSlotWrap.style.left = p.x + "px";
+                  nycBookSlotWrap.style.top = p.y + gap + "px";
+                  nycBookSlotWrap.style.transform = "translate(-50%, 0)";
+                }
+
+                function hideNycBookSlot() {
+                  nycBookSlotLatLng = null;
+                  nycBookSlotAddress = "";
+                  nycBookSlotWrap.classList.remove("is-visible");
+                  nycBookSlotWrap.setAttribute("aria-hidden", "true");
+                }
+
+                function showNycBookSlot(latLng, addressLabel) {
+                  nycBookSlotLatLng = latLng;
+                  nycBookSlotAddress = addressLabel != null ? String(addressLabel) : "";
+                  nycBookSlotWrap.classList.add("is-visible");
+                  nycBookSlotWrap.setAttribute("aria-hidden", "false");
+                  positionNycBookSlot(latLng);
+                }
+
+                nycMap.on("moveend zoomend", function () {
+                  if (nycBookSlotLatLng) {
+                    positionNycBookSlot(nycBookSlotLatLng);
+                  }
+                });
+
+                function clearNycGeocodeMarkers() {
+                  nycGeocodeMarkers.clearLayers();
+                  hideNycBookSlot();
+                }
+
+                /* Inline SVG via divIcon — avoids broken img/alt "Marker" when iconUrl path mismatches base URL */
+                var nycAddressPinIcon = L.divIcon({
+                  className: "nyc-address-pin-divicon",
+                  html:
+                    '<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">' +
+                    '<circle cx="12" cy="10" r="3" fill="none" stroke="#5c8f6e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+                    '<path d="M19 9.75C19 15.375 12 21 12 21C12 21 5 15.375 5 9.75C5 6.02208 8.13401 3 12 3C15.866 3 19 6.02208 19 9.75Z" fill="none" stroke="#5c8f6e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+                    "</svg>",
+                  iconSize: [38, 38],
+                  iconAnchor: [19, 38],
+                  popupAnchor: [0, -34],
+                });
+
+                function addrLooksLikePostal(attrs) {
+                  var t = String((attrs && attrs.Addr_type) || "");
+                  return /postal|zip/i.test(t);
+                }
+
+                function addrLooksLikeStreetPoint(attrs) {
+                  var t = (attrs && attrs.Addr_type) || "";
+                  if (/StreetAddress|PointAddress|BuildingSite|Subaddress|SiteAddress/i.test(t)) {
+                    return true;
+                  }
+                  var n = attrs && attrs.AddNum;
+                  return typeof n === "string" && /^\d/.test(n.trim());
+                }
+
+                function hasLeadingHouseNumber(s) {
+                  return /^\s*\d+[A-Za-z]?(?:\s*-\s*\d+)?\s+\S/.test(String(s || ""));
+                }
+
+                /* Markers only for full street-style matches — not postcode/ZIP-only results */
+                function shouldShowAddressPin(attrs, label) {
+                  if (addrLooksLikePostal(attrs)) {
+                    return false;
+                  }
+                  return addrLooksLikeStreetPoint(attrs) || hasLeadingHouseNumber(label);
+                }
+
+                function applyNycSearchView(label, center, attrs) {
+                  function finishFitBounds(bounds, maxZoom) {
+                    try {
+                      nycMap.fitBounds(bounds, {
+                        padding: [48, 48],
+                        maxZoom: maxZoom != null ? maxZoom : INTERACTIVE_MAP_MAX_ZOOM,
+                      });
+                    } catch (fitErr) {
+                      nycMap.setView(center, Math.max(nycMap.getZoom(), INTERACTIVE_MAP_MAX_ZOOM - 1));
+                    }
+                  }
+
+                  if (attrs && addrLooksLikePostal(attrs)) {
+                    hideNycBookSlot();
+                    nycMap.setView(center, Math.max(nycMap.getZoom(), 12));
+                    return;
+                  }
+
+                  if (shouldShowAddressPin(attrs, label)) {
+                    L.marker(center, {
+                      icon: nycAddressPinIcon,
+                      interactive: false,
+                      keyboard: false,
+                    }).addTo(nycGeocodeMarkers);
+                    try {
+                      finishFitBounds(L.latLngBounds(center, center).pad(0.002), INTERACTIVE_MAP_MAX_ZOOM);
+                    } catch (e1) {
+                      nycMap.setView(center, Math.max(nycMap.getZoom(), INTERACTIVE_MAP_MAX_ZOOM));
+                    }
+                    showNycBookSlot(center, label);
+                    requestAnimationFrame(function () {
+                      positionNycBookSlot(center);
+                    });
+                    return;
+                  }
+
+                  hideNycBookSlot();
+                  nycMap.setView(center, Math.max(nycMap.getZoom(), 13));
+                }
+
+                function handleMarkGeocode(e) {
+                  var g = e.geocode;
+                  var label = (g && g.name) || "";
+                  var center = g && g.center ? g.center : nycMap.getCenter();
+                  var attrs = (g && g.properties) || {};
+                  clearNycGeocodeMarkers();
+                  applyNycSearchView(label, center, attrs);
+                }
+
+                function applyNycMapClickPick(label, center) {
+                  clearNycGeocodeMarkers();
+                  if (!center || !metroBounds.contains(center)) {
+                    return;
+                  }
+                  if (nycGeocoderCtrl && label) {
+                    nycGeocoderCtrl.setQuery(label);
+                  }
+                  L.marker(center, {
+                    icon: nycAddressPinIcon,
+                    interactive: false,
+                    keyboard: false,
+                  }).addTo(nycGeocodeMarkers);
+                  showNycBookSlot(center, label);
+                  requestAnimationFrame(function () {
+                    positionNycBookSlot(center);
+                  });
+                }
+
+                var nycGeocoderCtrl = L.Control.geocoder({
+                  collapsed: false,
+                  defaultMarkGeocode: false,
+                  placeholder: "Search address or place…",
+                  geocoder: nycMetroGeocoder,
+                  suggestMinLength: 2,
+                  queryMinLength: 1,
+                })
+                  .on("markgeocode", handleMarkGeocode)
+                  .addTo(nycMap);
+
+                var nycReversePending = false;
+                nycMap.on("click", function (ev) {
+                  var oe = ev.originalEvent;
+                  var target = oe && oe.target;
+                  if (
+                    target &&
+                    target.closest &&
+                    target.closest(
+                      ".leaflet-control-geocoder, .nyc-book-slot-wrap, .leaflet-control-zoom, .leaflet-bar",
+                    )
+                  ) {
+                    return;
+                  }
+                  var latlng = ev.latlng;
+                  if (!latlng || !metroBounds.contains(latlng)) {
+                    return;
+                  }
+                  if (nycReversePending) {
+                    return;
+                  }
+                  nycReversePending = true;
+                  nycMetroNominatimReverse(latlng, nycMap.getZoom(), function (results) {
+                    nycReversePending = false;
+                    if (!results || !results.length) {
+                      return;
+                    }
+                    var g = results[0];
+                    var label = (g && g.name) || "";
+                    var center = (g && g.center) || latlng;
+                    applyNycMapClickPick(label, center);
+                  });
+                });
+
+              }
+            } catch (nycErr) {
+              console.error("NYC map failed:", nycErr);
+            }
+            invalidateMap(nycMap);
+          });
+        }
+
+        function mountCoverageMap() {
+          if (!covContainer || !covSection || covContainer.getAttribute("data-map-booted") === "1") {
+            return;
+          }
+          covContainer.setAttribute("data-map-booted", "1");
+          try {
+            /* NJ ZIP query anchor (unchanged catchment) */
+            var jcLat = 40.728;
+            var jcLng = -74.077;
+            /* Third map: framed for Hudson County + Brooklyn — less tight than z14 Bayonne-only */
+            var covMapLat = 40.692;
+            var covMapLng = -74.025;
+            /* Zoom 12 fits Lower Manhattan + Brooklyn + JC waterfront in typical viewports */
+            var covDefaultZoom = 12;
+            /* ~straight-line miles Jersey City → Parsippany (user-requested scale vs Long Island) */
+            var jcMetroRadiusMi = 22;
+            /* xmin,ymin,xmax,ymax — NYC five boroughs + Nassau/Suffolk; trims northern suburbs vs full-state NY */
+            var nyMetroEnvelope = "-74.35,40.495,-71.93,41.22";
+
+            var covMap = L.map(covContainer, INTERACTIVE_MAP_OPTS).setView([covMapLat, covMapLng], covDefaultZoom);
+            addEsriDarkBasemap(covMap, {
+              transport: false,
+              maxZoom: INTERACTIVE_MAP_MAX_ZOOM,
+            });
+            attachRoadBluewash(covMap);
+            attachMapInteractionPerf(covMap);
+            maps.push(covMap);
+
+            var zipLayerBase =
+              "https://services.arcgis.com/P3ePLMYs2RVChkJx/ArcGIS/rest/services/USA_ZIP_Code_Areas_anaylsis/FeatureServer/0/query";
+            var zipOut =
+              "&outFields=" +
+              encodeURIComponent("ZIP_CODE,STATE") +
+              "&f=geojson" +
+              "&resultRecordCount=2000" +
+              "&maxAllowableOffset=0.00015";
+
+            var njZipQuery =
+              zipLayerBase +
+              "?" +
+              "where=" +
+              encodeURIComponent("STATE='NJ'") +
+              "&geometry=" +
+              encodeURIComponent(jcLng + "," + jcLat) +
+              "&geometryType=esriGeometryPoint" +
+              "&inSR=4326" +
+              "&distance=" +
+              jcMetroRadiusMi +
+              "&units=esriSRUnit_StatuteMile" +
+              "&spatialRel=" +
+              encodeURIComponent("esriSpatialRelIntersects") +
+              zipOut;
+
+            var nyZipQuery =
+              zipLayerBase +
+              "?" +
+              "where=" +
+              encodeURIComponent("STATE='NY'") +
+              "&geometry=" +
+              encodeURIComponent(nyMetroEnvelope) +
+              "&geometryType=esriGeometryEnvelope" +
+              "&inSR=4326" +
+              "&spatialRel=" +
+              encodeURIComponent("esriSpatialRelIntersects") +
+              zipOut;
+
+            function mergeZipGeoJSON(geoNj, geoNy) {
+              var seen = {};
+              var feats = [];
+              function pushFeatures(g) {
+                if (!g || !g.features) {
+                  return;
+                }
+                g.features.forEach(function (f) {
+                  var z = f.properties && f.properties.ZIP_CODE != null ? String(f.properties.ZIP_CODE) : "";
+                  z = z.replace(/\D/g, "").slice(0, 5);
+                  if (!z || seen[z]) {
+                    return;
+                  }
+                  seen[z] = true;
+                  feats.push(f);
+                });
+              }
+              pushFeatures(geoNj);
+              pushFeatures(geoNy);
+              return { type: "FeatureCollection", features: feats };
+            }
+
+            function normalizeZipGeoJSON(g) {
+              if (!g || g.error || !Array.isArray(g.features)) {
+                return { type: "FeatureCollection", features: [] };
+              }
+              return g;
+            }
+
+            function fetchZipGeo(url) {
+              return fetch(url)
+                .then(function (r) {
+                  return r.json();
+                })
+                .then(normalizeZipGeoJSON)
+                .catch(function () {
+                  return { type: "FeatureCollection", features: [] };
+                });
+            }
+
+            var covGeoJsonRenderer = L.canvas({ padding: 0.12 });
+
+            Promise.all([fetchZipGeo(njZipQuery), fetchZipGeo(nyZipQuery)])
+              .then(function (pair) {
+                var geo = mergeZipGeoJSON(pair[0], pair[1]);
+                if (!geo.features.length) {
+                  throw new Error("No ZIP features merged");
+                }
+                var layer = L.geoJSON(geo, {
+                  renderer: covGeoJsonRenderer,
+                  interactive: false,
+                  smoothFactor: 1.5,
+                  style: function (feat) {
+                    return zipStyleFromFiveDigit(feat.properties.ZIP_CODE);
+                  },
+                }).addTo(covMap);
+                try {
+                  covMap.setView([covMapLat, covMapLng], covDefaultZoom);
+                } catch (fbErr) {
+                  /* ignore */
+                }
+                invalidateMap(covMap);
+              })
+              .catch(function () {
+                console.warn("Metro ZIP boundary fetch failed; using illustrative NJ latitude bands.");
+                var geo = buildNjZip3BandsGeoJSON();
+                L.geoJSON(geo, {
+                  renderer: covGeoJsonRenderer,
+                  interactive: false,
+                  smoothFactor: 1.5,
+                  style: function (feat) {
+                    var code = feat.properties.ZIP3;
+                    var j = 89 - parseInt(code, 10);
+                    var denom = geo.features.length - 1 || 1;
+                    var t = j / denom;
+                    var rr = Math.round(35 + 130 * (0.55 + 0.45 * Math.sin(t * 4.1)));
+                    var gg = Math.round(110 + 95 * (0.45 + 0.55 * Math.cos(t * 3.3)));
+                    var bb = Math.round(175 + 70 * Math.sin(t * 2.8 + 1));
+                    return {
+                      fillColor: "rgb(" + rr + "," + gg + "," + bb + ")",
+                      fillOpacity: 0.36,
+                      color: "rgba(200,248,255,0.72)",
+                      weight: 1.25,
+                    };
+                  },
+                }).addTo(covMap);
+                try {
+                  covMap.setView([covMapLat, covMapLng], covDefaultZoom);
+                } catch (e2) {
+                  /* ignore */
+                }
+                invalidateMap(covMap);
+              });
+          } catch (covErr) {
+            console.error("Coverage map failed:", covErr);
+          }
+        }
+
+        function ensureNycMapFromHash() {
+          if (window.location.hash !== "#nyc-explorer") {
+            return;
+          }
+          bootNycMap();
+        }
+
+        var nycLazyTarget = document.getElementById("nyc-explorer") || nycContainer;
+        if (window.location.hash === "#nyc-explorer") {
+          bootNycMap();
+        } else {
+          lazyBootWhenVisible(nycLazyTarget, bootNycMap);
+        }
+        lazyBootWhenVisible(covSection || covContainer, mountCoverageMap);
+        window.addEventListener("hashchange", ensureNycMapFromHash);
+
+        window.addEventListener("resize", invalidateAllMaps);
+
+        var chipsAnchor = document.getElementById("coverage-chips-anchor");
+        if (covSection && chipsAnchor && window.IntersectionObserver) {
+          var chipIo = new IntersectionObserver(
+            function (entries) {
+              entries.forEach(function (entry) {
+                if (!entry.isIntersecting) {
+                  return;
+                }
+                covSection.classList.add("is-chips-visible");
+                chipIo.disconnect();
+              });
+            },
+            {
+              threshold: 0.1,
+              rootMargin: "0px 0px -18% 0px",
+            },
+          );
+          chipIo.observe(chipsAnchor);
+        } else if (covSection) {
+          covSection.classList.add("is-chips-visible");
+        }
+
+        requestAnimationFrame(invalidateAllMaps);
+        window.setTimeout(invalidateAllMaps, 400);
+        window.setTimeout(invalidateAllMaps, 1600);
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <base target="_top" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign in — Zack&apos;s Maids</title>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="stylesheet" href="/auth.css" />
+</head>
+<body>
+  <nav class="site-nav" data-site-nav aria-label="Primary navigation">
+    <div class="nav-auth">
+      <span class="nav-auth-guest">
+        <a class="nav-link" href="/login.html" aria-current="page">Login</a>
+        <span class="nav-sep" aria-hidden="true">|</span>
+        <a class="nav-link" href="/register.html">Register</a>
+      </span>
+      <span class="nav-auth-user" hidden>
+        <span class="nav-user-session">
+          <img class="nav-user-icon-img" src="/user-svgrepo-com.svg" alt="" width="18" height="18" />
+          <span class="nav-user-name" id="nav-user-display-name"></span>
+          <span class="nav-sep" aria-hidden="true">|</span>
+          <button type="button" class="nav-link nav-link-btn" id="nav-logout">Logout</button>
+        </span>
+      </span>
+    </div>
+    <ul class="nav-menu">
+      <li><a class="nav-link" href="/demo.html">Home</a></li>
+      <li class="nav-sep" aria-hidden="true">|</li>
+      <li>
+        <a class="nav-link" href="/bookings.html">Services</a>
+      </li>
+      <li class="nav-sep" data-requires-auth-any hidden aria-hidden="true">|</li>
+      <li data-requires-auth-regular hidden>
+        <a class="nav-link" href="/bookings.html">My Bookings</a>
+      </li>
+      <li data-requires-admin hidden>
+        <a class="nav-link" href="/overview.html">All Bookings</a>
+      </li>
+      <li class="nav-sep" data-requires-admin hidden aria-hidden="true">|</li>
+      <li data-requires-admin hidden>
+        <a class="nav-link" href="/all-users.html">All users</a>
+      </li>
+      <li class="nav-sep" data-requires-admin hidden aria-hidden="true">|</li>
+      <li data-requires-admin hidden>
+        <a class="nav-link" href="/messages.html">Messages</a>
+      </li>
+      <li class="nav-sep" data-requires-admin hidden aria-hidden="true">|</li>
+      <li data-requires-admin hidden>
+        <a class="nav-link" href="/admin-settings.html">Settings</a>
+      </li>
+      <li class="nav-sep" aria-hidden="true">|</li>
+      <li><a class="nav-link" href="/about.html">About</a></li>
+      <li class="nav-sep" aria-hidden="true">|</li>
+      <li><a class="nav-link" href="/contact.html">Contact</a></li>
+    </ul>
+  </nav>
+
+  <main class="auth-shell">
+    <div class="auth-card">
+      <h1>Sign in</h1>
+      <p class="auth-lede">Customer accounts: use your verified email. Administrators: use the admin username or admin email.</p>
+
+      <div id="login-error" class="msg-error" role="alert" aria-live="polite"></div>
+      <p id="login-reset-note" class="msg-success" hidden>Password updated. Sign in with your new password.</p>
+
+      <form id="login-form" class="auth-form" method="post" action="/api/auth/login" autocomplete="on">
+        <label for="login-email">Email or admin username</label>
+        <input id="login-email" name="email" type="text" autocomplete="username" required />
+
+        <label for="login-password">Password</label>
+        <input id="login-password" name="password" type="password" autocomplete="current-password" required minlength="8" />
+
+        <p class="row-between"><a href="/forgot-password.html">Forgot password?</a></p>
+
+        <button type="submit" class="btn-primary">Sign in</button>
+      </form>
+
+      <p class="auth-footer">
+        No account? <a href="/register.html">Create one</a>
+        · <a href="/resend-verification.html">Resend verification email</a>
+      </p>
+    </div>
+  </main>
+
+  <script src="/auth-client.js" defer></script>
+</body>
+</html>
